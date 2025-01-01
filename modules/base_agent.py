@@ -62,7 +62,7 @@ class BaseAgent:
             # control_class = globals()[node_type]  # Control class should be globally available
             control_class = getattr(bt_module, node_type)
             return control_class(node_type, children=children)
-        elif node_type in BehaviorTreeList.ACTION_NODES:
+        elif node_type in BehaviorTreeList.ACTION_NODES + BehaviorTreeList.CONDITION_NODES:
             # action_class = globals()[node_type]  # Action class should be globally available
             action_class = getattr(bt_module, node_type)
             return action_class(node_type, self)
@@ -238,3 +238,7 @@ class BaseAgent:
         
         return local_tasks_info  
     
+    def get_unassigned_tasks(self):
+        """ Retrieve tasks that are not yet assigned, specifically where assigned_to is None. """
+        unassigned_tasks = [task for task in self.tasks_info if task.assigned_to is None]
+        return unassigned_tasks
