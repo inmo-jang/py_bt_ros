@@ -14,12 +14,7 @@ args = parser.parse_args()
 # Load configuration and initialize the environment
 set_config(args.config)
 from modules.utils import config
-
-
-# Dynamically import the environment module and Env class
-env_module = importlib.import_module(config.get('scenario') + ".env")
-Env = getattr(env_module, "Env")
-# Initialize Env instance
+from modules.base_env import BaseEnv as Env
 bt_runner = Env(config)
 
 

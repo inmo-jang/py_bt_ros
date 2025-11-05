@@ -1,6 +1,7 @@
 import os
 os.environ['SDL_VIDEO_WINDOW_POS'] = "0,30"  # top-left corner
 import pygame
+from modules.base_agent import BaseAgent
 
 class BaseEnv:
     def __init__(self, config):
@@ -19,7 +20,10 @@ class BaseEnv:
                 direction=self.bt_viz_cfg.get('direction', 'Vertical')
             )
         self.clock = pygame.time.Clock()
-        
+
+        # Initialise
+        self.reset()
+                
 
     def reset(self):
         # Initialization        
@@ -27,7 +31,15 @@ class BaseEnv:
         self.paused = False   
         self.agent = None
 
+        ros_namespace = self.config['agent'].get('namespaces', [])
 
+        # Initialize agent
+        self.agent = BaseAgent(ros_namespace)
+
+        # Provide global info and create BT
+        scenario_path = self.config['scenario'].replace('.', '/')
+        behavior_tree_xml = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/{scenario_path}/{self.config['agent']['behavior_tree_xml']}"
+        self.agent.create_behavior_tree(str(behavior_tree_xml))  
 
 
     async def step(self):
