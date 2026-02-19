@@ -1,5 +1,5 @@
 from modules.utils import config, optional_import
-env_pkg = config.get('scenario')
+env_pkg = config.get('scenario').get('environment')
 bt_module = optional_import(env_pkg + ".bt_nodes")
 
 from modules.bt_constructor import build_behavior_tree
@@ -10,6 +10,7 @@ class Agent:
         self.blackboard = {}
         self.ros_bridge = ROSBridge.get()
         self.ros_namespace = ros_namespace      
+        self.type = config['agent'].get('type', None) # agent type 생성
 
     def create_behavior_tree(self, behavior_tree_xml):
         self.behavior_tree_xml = behavior_tree_xml
