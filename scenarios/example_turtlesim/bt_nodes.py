@@ -40,10 +40,10 @@ class IsNearby(ConditionWithROSTopics):
 
         a = cache["self"]
         b = cache["target"]
+        blackboard["target"] = b  # <- target pose 캐시를 블랙보드에 기록 (다른 노드에서 활용 가능)
+
         thresh = self.threshold
-        
         dist = math.hypot(a.x - b.x, a.y - b.y)
-        blackboard["target"] = b  # <- target pose 캐시를 블랙보드에 기록
         if dist <= float(thresh):
             result = True
         else:
@@ -51,7 +51,6 @@ class IsNearby(ConditionWithROSTopics):
         return result # dist <= float(thresh)
 
 # bt_nodes.py (발췌)
-from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
 
@@ -103,18 +102,6 @@ class MoveTo(ActionWithROSAction):
         ps.pose.orientation.w = 1.0
         self.goal_pub.publish(ps)
 
-    def _interpret_result(self, result, agent, bb, status_code=None):
-        # status_code는 action_msgs/GoalStatus의 상수와 매칭됨
-        if status_code == GoalStatus.STATUS_SUCCEEDED:
-            bb['nav_result'] = 'succeeded'
-            return Status.SUCCESS
-        elif status_code == GoalStatus.STATUS_CANCELED:
-            bb['nav_result'] = 'canceled'
-            return Status.FAILURE
-        else:
-            # STATUS_ABORTED 등 기타 코드
-            bb['nav_result'] = 'aborted'
-            return Status.FAILURE
 
 
 from turtlesim.srv import Kill  # turtlesim 표준 서비스
@@ -134,10 +121,6 @@ class KillTarget(ActionWithROSService):
         req.name = str('turtle_target')
         return req
 
-    def _interpret_response(self, response, agent, blackboard):
-        # Kill.srv 응답은 비어 있음(성공 기준으로 간주)
-        blackboard['kill_result'] = 'succeeded'
-        return Status.SUCCESS
 
 
 class IsTargetClear(ConditionWithROSTopics):

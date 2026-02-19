@@ -1,5 +1,6 @@
 from modules.base_bt_nodes import Node, Status
 from rclpy.action import ActionClient
+from action_msgs.msg import GoalStatus
 
 
 class ConditionWithROSTopics(Node):
@@ -70,9 +71,12 @@ class ActionWithROSAction(Node):
         pass
 
     def _interpret_result(self, result, agent, blackboard, status_code=None):
-        # 하위 클래스에서 구현  
-        # Action Request가 종료되면 호출되는 함수
-        return Status.SUCCESS                    
+        # 기본 매핑: SUCCEEDED → SUCCESS, 그 외 → FAILURE
+        # 필요 시 하위 클래스에서 오버라이드
+        if status_code == GoalStatus.STATUS_SUCCEEDED:
+            return Status.SUCCESS
+        return Status.FAILURE
+
 
     async def run(self, agent, blackboard):
         # Action Request 송신
@@ -148,7 +152,8 @@ class ActionWithROSService(Node):
         raise NotImplementedError
 
     def _interpret_response(self, response, agent, blackboard):
-        # 하위 클래스에서 필요 시 오버라이드
+        # 기본 매핑: 서비스 호출 성공 자체를 SUCCESS로 간주
+        # 필요 시 하위 클래스에서 오버라이드
         return Status.SUCCESS
 
     async def run(self, agent, blackboard):
