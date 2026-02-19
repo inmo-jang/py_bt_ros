@@ -36,7 +36,7 @@ class BTRunner:
         self.agent = Agent(ros_namespace)
 
         # Provide global info and create BT
-        scenario_path = self.config['scenario'].replace('.', '/')
+        scenario_path = self.config['scenario'].get('environment').replace('.', '/')
         behavior_tree_xml = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/{scenario_path}/{self.config['agent']['behavior_tree_xml']}"
         self.agent.create_behavior_tree(str(behavior_tree_xml))  
 
