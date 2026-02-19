@@ -2,14 +2,14 @@ import math
 from modules.base_bt_nodes import BTNodeList, Status, Node, Sequence, Fallback, ReactiveSequence, ReactiveFallback
 # BT Node List
 CUSTOM_ACTION_NODES = [
-    'MoveToTarget',
+    'MoveTo',
     'KillTarget',
     'ExecuteTask',
     'Explore'
 ]
 
 CUSTOM_CONDITION_NODES = [
-    'IsNearbyTarget',
+    'IsNearby',
     'IsTargetClear',
 ]
 
@@ -23,14 +23,14 @@ from std_srvs.srv import SetBool
 from modules.base_bt_nodes_ros import ConditionWithROSTopics, ActionWithROSAction, ActionWithROSService
 
 
-class IsNearbyTarget(ConditionWithROSTopics):
-    def __init__(self, name, agent, default_thresh=0.1):
+class IsNearby(ConditionWithROSTopics):
+    def __init__(self, name, agent, target_pose_topic, threshold=0.1):
         ns = agent.ros_namespace or ""  # 네임스페이스 없으면 루트
         super().__init__(name, agent, [
             (TPose, f"{ns}/pose", 'self'),
-            (TPose, "/turtle_target/pose", 'target'),
+            (TPose, target_pose_topic, 'target'),
         ])
-        self.default_thresh = default_thresh
+        self.threshold = threshold
 
 
     def _predicate(self, agent, blackboard):
@@ -40,10 +40,9 @@ class IsNearbyTarget(ConditionWithROSTopics):
 
         a = cache["self"]
         b = cache["target"]
-
-        thresh = blackboard.get("nearby_threshold", self.default_thresh)
+        thresh = self.threshold
+        
         dist = math.hypot(a.x - b.x, a.y - b.y)
-        blackboard["distance_to_target"] = dist
         blackboard["target"] = b  # <- target pose 캐시를 블랙보드에 기록
         if dist <= float(thresh):
             result = True
@@ -56,14 +55,14 @@ from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
 
-class MoveToTarget(ActionWithROSAction):
-    def __init__(self, name, agent):
+class MoveTo(ActionWithROSAction):
+    def __init__(self, name, agent, action, goal_pose_topic):
         ns = agent.ros_namespace or ""  # 네임스페이스 없으면 루트
         super().__init__(name, agent, 
-            (NavigateToPose, f"{ns}/navigate_to_pose")
+            (NavigateToPose, f"{ns}/{action}")
         )
         # RUNNING일 때 목표를 흘려 보낼 퍼블리셔
-        goal_topic = f"{ns}/goal_pose" if ns else "/goal_pose"
+        goal_topic = f"{ns}/{goal_pose_topic}" if ns else goal_pose_topic
         self.goal_pub = self.ros.node.create_publisher(PoseStamped, goal_topic, 10)
 
 
