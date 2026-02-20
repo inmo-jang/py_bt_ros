@@ -5,8 +5,10 @@
       <IsTargetClear/>
       <ReactiveSequence>
         <ReactiveFallback>
-          <IsNearbyTarget/>
-          <MoveToTarget/>
+          <IsNearby target_pose_topic="turtle_target/pose"
+                    threshold="0.2"/>
+          <MoveTo action="navigate_to_pose"
+                  goal_pose_topic="goal_pose"/>
         </ReactiveFallback>
         <KillTarget/>
       </ReactiveSequence>
@@ -15,14 +17,24 @@
 
   <!-- Description of Node Models (used by Groot) -->
   <TreeNodesModel>
-    <Condition ID="IsNearbyTarget"
-               editable="true"/>
+    <Condition ID="IsNearby"
+               editable="true">
+      <input_port name="target_pose_topic"
+                  default="/turtle_target/pose"/>
+      <input_port name="threshold"
+                  default="0.1"/>
+    </Condition>
     <Condition ID="IsTargetClear"
                editable="true"/>
     <Action ID="KillTarget"
             editable="true"/>
-    <Action ID="MoveToTarget"
-            editable="true"/>
+    <Action ID="MoveTo"
+            editable="true">
+      <output_port name="action"
+                   default="navigate_to_pose"/>
+      <output_port name="goal_pose_topic"
+                   default="goal_pose"/>
+    </Action>
   </TreeNodesModel>
 
 </root>

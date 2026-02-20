@@ -1,4 +1,5 @@
-scenario: scenarios.example_turtlesim
+scenario: 
+  environment: scenarios.example_turtlesim
 
 agent:
   namespaces: "/turtle1"
