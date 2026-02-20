@@ -43,7 +43,7 @@ def quaternion_to_yaw(q) -> float:
     return math.atan2(siny_cosp, cosy_cosp)
 
 
-class RescueUGVNavigateServer(Node):
+class UGVNavServer(Node):
     """
     NavigateToPose Action Server for Rescue UGV
     - Logic: Goal tracking + Gap-based obstacle avoidance
@@ -100,7 +100,7 @@ class RescueUGVNavigateServer(Node):
         )
 
         self.get_logger().info(
-            f"RescueUGVNavigateServer started. "
+            f"UGVNavServer started. "
             f"Namespace: {self.get_namespace()}, Action: navigate_to_pose"
         )
 
@@ -120,6 +120,9 @@ class RescueUGVNavigateServer(Node):
         self.declare_parameter("min_linear_scale", 0.15)
         self.declare_parameter("heading_tolerance", 0.05)
 
+        # Rotation shim 설정 (목적지 방향과 현재 방향이 많이 다를 때 회전 우선)
+        self.declare_parameter("rotation_shim_threshold", 0.2)  # 약 11.5도
+        
         # 목표 도착 판정
         self.declare_parameter("goal_tolerance", 0.3)
 
@@ -129,7 +132,7 @@ class RescueUGVNavigateServer(Node):
         self.declare_parameter("obstacle_distance_slow", 5.0)   # 감속 시작 거리
         self.declare_parameter("obstacle_distance_stop", 1.2)   # 긴급 정지 거리
         self.declare_parameter("front_sector_angle", 45.0)      # 전방 감시 각도 (deg)
-        self.declare_parameter("avoidance_gain", 4.0)           # 회피 강도
+        self.declare_parameter("avoidance_gain", 10.0)           # 회피 강도
 
         # ✅ Scan preprocessing 요구사항 반영
         self.declare_parameter("clip_close_dist", 0.5)          # <= 이하면 0.0 처리  0.5
@@ -163,6 +166,9 @@ class RescueUGVNavigateServer(Node):
         self.w_goal_align = float(self.get_parameter("w_goal_align").value)
         self.w_gap_width = float(self.get_parameter("w_gap_width").value)
         self.w_gap_dist = float(self.get_parameter("w_gap_dist").value)
+
+        self.rotation_shim_threshold = float(self.get_parameter("rotation_shim_threshold").value)        
+
 
     def _pose_callback(self, msg: PoseStamped):
         self._current_pose = msg
@@ -401,8 +407,8 @@ class RescueUGVNavigateServer(Node):
 
         return front_min, avoidance_angular, danger_level
 
+
     def _compute_velocity(self, goal_x: float, goal_y: float) -> Tuple[float, float]:
-        """Goal tracking + obstacle avoidance blending"""
         if self._current_pose is None:
             return 0.0, 0.0
 
@@ -415,34 +421,50 @@ class RescueUGVNavigateServer(Node):
         distance = math.hypot(dx, dy)
 
         target_yaw = math.atan2(dy, dx)
-        heading_error = normalize_angle(target_yaw - yaw)  # +면 목표가 왼쪽
+        heading_error = normalize_angle(target_yaw - yaw)  # +면 왼쪽
 
-        # Goal tracking
+        # --- [Rotation Shim 로직 시작] ---
+        # 각도 오차가 설정한 임계값보다 크면 '회전 전용' 모드 활성화
+        is_rotating_only = abs(heading_error) > self.rotation_shim_threshold
+        
+        # 1. Goal tracking용 속도 계산
         goal_angular = clamp(self.k_angular * heading_error, -self.max_angular_vel, self.max_angular_vel)
+        
+        if is_rotating_only:
+            goal_linear = 0.0  # 각도를 맞출 때까지 전진하지 않음
+        else:
+            goal_linear = self.k_linear * distance
+            # 전진 중에도 각도 오차에 따라 속도 가감속 (부드러운 곡선 주행용)
+            heading_factor = max(math.cos(heading_error), 0.0)
+            speed_scale = self.min_linear_scale + (1.0 - self.min_linear_scale) * heading_factor
+            goal_linear *= speed_scale
 
-        goal_linear = self.k_linear * distance
-        heading_factor = max(math.cos(heading_error), 0.0)
-        speed_scale = self.min_linear_scale + (1.0 - self.min_linear_scale) * heading_factor
-        goal_linear *= speed_scale
-
-        # Obstacle avoidance (gap)
+        # 2. 장애물 회피(Gap-based) 계산
         front_dist, avoidance_angular, danger_level = self._compute_obstacle_avoidance(heading_error)
 
+        # 3. 속도 최종 결정 및 블렌딩
         if danger_level >= 1.0:
-            # emergency: almost stop and rotate to escape
-            linear_vel = 0.05
+            # 긴급 상황: 정지 후 회피 방향으로 회전
+            linear_vel = 0.0
             angular_vel = clamp(avoidance_angular, -self.max_angular_vel, self.max_angular_vel)
-            self.get_logger().warn(f"Emergency! dist={front_dist:.2f}m", throttle_duration_sec=0.5)
+        elif is_rotating_only:
+            # Rotation Shim 상태: 항상 목표 방향으로 제자리 회전
+            # (긴급 상황은 danger_level >= 1.0 분기에서 처리됨)
+            linear_vel = 0.0
+            angular_vel = goal_angular
         else:
-            blend = danger_level  # 0..1
+            # 일반 주행 모드: Goal 방향과 Avoidance 방향을 블렌딩
+            blend = danger_level
             angular_vel = (1.0 - blend) * goal_angular + blend * avoidance_angular
-            angular_vel = clamp(angular_vel, -self.max_angular_vel, self.max_angular_vel)
-
             speed_reduction = 1.0 - (0.7 * blend)
             linear_vel = goal_linear * speed_reduction
 
+        # 최종 출력값 제한
         linear_vel = clamp(linear_vel, 0.0, self.max_linear_vel)
-        return linear_vel, angular_vel
+        angular_vel = clamp(angular_vel, -self.max_angular_vel, self.max_angular_vel)
+        
+        return linear_vel, angular_vel    
+
 
     async def _execute_callback(self, goal_handle):
         self.get_logger().info("Executing navigation goal...")
@@ -461,8 +483,6 @@ class RescueUGVNavigateServer(Node):
                 if goal_handle.is_cancel_requested:
                     self._stop()
                     goal_handle.canceled()
-                    result.error_code = 0
-                    result.error_msg = "Navigation canceled"
                     return result
 
                 if self._current_pose is None:
@@ -484,8 +504,6 @@ class RescueUGVNavigateServer(Node):
                 if distance <= self.goal_tolerance:
                     self._stop()
                     goal_handle.succeed()
-                    result.error_code = 0
-                    result.error_msg = "Goal reached"
                     self.get_logger().info(f"Goal reached! Dist: {distance:.3f}m")
                     return result
 
@@ -510,8 +528,6 @@ class RescueUGVNavigateServer(Node):
             self.get_logger().error(f"Navigation error: {e}")
             self._stop()
             goal_handle.abort()
-            result.error_code = 1
-            result.error_msg = str(e)
             return result
 
         self._stop()
@@ -530,11 +546,11 @@ def main(args=None):
     # 네임스페이스 설정
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ns", type=str, default="", help="ROS namespace, e.g. /Rescue_UGV_1")
+    parser.add_argument("--ns", type=str, default="/Fire_UGV_1", help="ROS namespace, e.g. /Fire_UGV_1")
     args = parser.parse_args()
 
-    node = RescueUGVNavigateServer(ns=args.ns)
-    executor = MultiThreadedExecutor()
+    node = UGVNavServer(ns=args.ns)
+    executor = MultiThreadedExecutor(num_threads=4)
     executor.add_node(node)
 
     try:

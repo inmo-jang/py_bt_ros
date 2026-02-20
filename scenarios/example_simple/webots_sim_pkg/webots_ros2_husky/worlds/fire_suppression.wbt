@@ -9,16 +9,13 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/Grass.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/trees/protos/Oak.proto"
 EXTERNPROTO "../protos/Fire_UGV.proto"
-EXTERNPROTO "../protos/Rescue_UGV.proto"
-EXTERNPROTO "../protos/Mavic2Pro.proto"
 IMPORTABLE EXTERNPROTO "../protos/Fire.proto"
-IMPORTABLE EXTERNPROTO "../protos/Target.proto"
 
 WorldInfo {
 }
 Viewpoint {
-  orientation 0.5102618184442151 0.4968065118630051 -0.7020086654796484 1.942458792988342
-  position 4.3059588015584636 11.236745855979823 90.21652422498993
+  orientation 0.2508174714167723 -0.0007437945226059575 -0.9680341124163988 3.147322571789997
+  position 18.409678126034713 15.189994512558538 20.17864474660723
 }
 TexturedBackground {
   texture "noon_cloudy_countryside"
@@ -403,19 +400,6 @@ DEF Fire_4 Fire {
   translation 2.5 15.5 0
   radius 2.5
 }
-DEF Target_1 Target {
-  translation 6 12 0.03
-  status 1
-  textureUrl [
-    "icons/target_checked.png"
-  ]
-}
-DEF Target_2 Target {
-  translation 3 -4 0.03
-}
-DEF Target_3 Target {
-  translation 4 -18 0.03
-}
 DEF Base Pose {
   translation -18 18 0
   rotation 0 0 1 -2.3561953071795863
@@ -446,31 +430,13 @@ DEF Fire_UGV_1 Fire_UGV {
   rotation 0 0 1 -0.785395307179586
   name "Fire_UGV_1"
 }
-DEF Rescue_UGV_1 Rescue_UGV {
-  translation -19 19 0.15
-  rotation 0 0 1 -0.785395307179586
-  name "Rescue_UGV_1"
-}
-DEF UAV_1 Mavic2Pro {
-  translation -15 18 0.12
-  rotation 0 0 -1 0.785396
-  name "UAV_1"
-  controller "mavic_driver"
-  controllerArgs [
-    "5.0"
-  ]
-}
-DEF UAV_2 Mavic2Pro {
-  translation -18 15 0.12
-  rotation 0 0 1 -0.785395307179586
-  name "UAV_2"
-  controller "mavic_driver"
-  controllerArgs [
-    "5.5"
-  ]
-}
 DEF Fire_UGV_2 Fire_UGV {
-  translation -19 14 0
+  translation -16.6013 16.2987 0.25
   rotation 0 0 1 -0.785395307179586
   name "Fire_UGV_2"
+}
+DEF Fire_UGV_3 Fire_UGV {
+  translation -18.9545 13.8455 0.35
+  rotation 0 0 1 -0.785395307179586
+  name "Fire_UGV_3"
 }

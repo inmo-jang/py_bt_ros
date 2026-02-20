@@ -8,6 +8,10 @@ Robot Supervisor (UGV side)
 - 로봇 고유 ID는 DEF 사용 (robot_launch.py도 DEF 기반)
 """
 
+# Webots 월드에서 pose_world를 publish할 로봇 DEF prefix 목록
+# robot_launch.py의 ROBOTS_NAME_LIST와 동일하게 유지할 것
+ROBOT_DEF_PREFIXES = ["Fire_UGV"]
+
 from controller import Supervisor
 import math
 import rclpy
@@ -70,8 +74,7 @@ class RobotSupervisor:
         # world_supervisor와 frame 통일
         self.frame_id_world = "world" # "webots_world"
 
-        # 취급한 DEF 정의
-        self.def_prefixes = ["Rescue_UGV", "Fire_UGV", "UAV"]
+        self.def_prefixes = ROBOT_DEF_PREFIXES
 
         self.tracked = []
         self._discover_robots_by_def()

@@ -10,11 +10,14 @@ from webots_ros2_driver.wait_for_controller_connection import WaitForControllerC
 from launch_ros.actions import Node
 
 
+# 월드 파일에서 인식할 로봇 타입 목록
+ROBOTS_NAME_LIST = ['Fire_UGV']
+
+
 def discover_robots_from_world(world_path):
     """월드 파일에서 Husky 기반 로봇들의 DEF 이름을 추출"""
     robot_names = []
-    # DEF <name> Husky, DEF <name> Fire_UGV, DEF <name> Rescue_UGV 등 매칭
-    pattern = re.compile(r'^DEF\s+(\w+)\s+(Husky|Fire_UGV|Rescue_UGV)\b', re.MULTILINE)
+    pattern = re.compile(r'^DEF\s+(\w+)\s+(' + '|'.join(ROBOTS_NAME_LIST) + r')\b', re.MULTILINE)
     
     with open(world_path, 'r') as f:
         content = f.read()
@@ -42,7 +45,7 @@ def generate_launch_description():
     ]
 
     # Start a Webots simulation instance
-    world_path = os.path.join(package_dir, 'worlds', 'fire_rescue_world_ver2.wbt')
+    world_path = os.path.join(package_dir, 'worlds', 'fire_suppression.wbt')
     webots = WebotsLauncher(world=world_path)
 
     # 월드 파일에서 로봇 이름 동적 발견
@@ -84,7 +87,7 @@ def generate_launch_description():
     # ----------------------------------------
     robot_drivers = []
 
-    for i, robot_name in enumerate(robot_names):
+    for robot_name in robot_names:
         # 각 로봇별 remapping
         mappings = [
             ('/diffdrive_controller/cmd_vel', f'/{robot_name}/cmd_vel'),
@@ -103,12 +106,6 @@ def generate_launch_description():
         )
         robot_drivers.append(robot_driver)
 
-    # 마지막 로봇에만 controller spawner 연결 (공유 controller_manager 사용)
-    waiting_node = WaitForControllerConnection(
-        target_driver=robot_drivers[-1],
-        nodes_to_start=ros_control_spawners
-    )
-
     # LaunchDescription 구성
     launch_items = [
         *set_webots_paths,   # ✅ webots 앞에 들어가야 함
@@ -119,9 +116,14 @@ def generate_launch_description():
     # 모든 robot_driver 추가
     for robot_driver in robot_drivers:
         launch_items.append(robot_driver)
-    
-    # 마지막에 waiting_node 추가 (controller spawner 실행)
-    launch_items.append(waiting_node)
+
+    # 마지막 로봇에만 controller spawner 연결 (공유 controller_manager 사용)
+    if robot_drivers:
+        waiting_node = WaitForControllerConnection(
+            target_driver=robot_drivers[-1],
+            nodes_to_start=ros_control_spawners
+        )
+        launch_items.append(waiting_node)
 
     launch_items.append(
         launch.actions.RegisterEventHandler(
@@ -134,3 +136,16 @@ def generate_launch_description():
 
     return LaunchDescription(launch_items)
     
+if __name__ == '__main__':
+    # VSCode 디버깅이나 직접 python3로 실행할 때 작동하는 부분
+    from launch import LaunchService
+
+    # 1. LaunchDescription 생성
+    ld = generate_launch_description()
+
+    # 2. LaunchService 초기화 및 설명(ld) 포함
+    ls = LaunchService()
+    ls.include_launch_description(ld)
+
+    # 3. 실행
+    ls.run()
