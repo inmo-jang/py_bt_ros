@@ -172,7 +172,8 @@ class ExecuteTask(Node):
         self.type = "Action"
         self.status = Status.RUNNING
         self._pub = agent.ros_bridge.node.create_publisher(
-            String, '/world/fire/suppress', 1
+            # String, '/world/fire/suppress', 1
+            String, '/world/fire/reduce', 1            
         )
     
     async def run(self, agent, blackboard):
@@ -247,7 +248,7 @@ class Explore(ActionWithROSAction):
 
 
 class IsArrivedAtTarget(ConditionWithROSTopics):
-    def __init__(self, name, agent, default_thresh=0.5):
+    def __init__(self, name, agent, default_thresh=0.6):
         ns = agent.ros_namespace or ""
         super().__init__(name, agent, [(PoseStamped, f"{ns}/pose_world", "ego_pose")])
         self.default_thresh = default_thresh
@@ -269,4 +270,4 @@ class IsArrivedAtTarget(ConditionWithROSTopics):
 
 
         dist = math.hypot(ego_pose.pose.position.x - target_info['x'], ego_pose.pose.position.y - target_info['y'])
-        return dist <= self.default_thresh
+        return dist <= self.default_thresh + target_info['radius']

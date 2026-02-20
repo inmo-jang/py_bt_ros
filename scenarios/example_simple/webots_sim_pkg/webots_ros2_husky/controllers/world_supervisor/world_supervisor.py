@@ -227,6 +227,8 @@ class WorldSupervisor(Node):
         self.create_subscription(Float64MultiArray, "/world/fire/spawn_custom", self._handle_spawn_fire_custom, 1)
         # Fire suppress / fire_id를 String으로 받음
         self.create_subscription(String, "/world/fire/suppress", self._handle_suppress_fire, 1)
+        # Fire radius 감소 / fire_id를 String으로 받음
+        self.create_subscription(String, "/world/fire/reduce", self._handle_reduce_fire, 1)
 
     def _handle_spawn_fire(self, request, response):
         """Fire를 랜덤 위치/크기로 생성"""
@@ -397,6 +399,29 @@ class WorldSupervisor(Node):
             self.get_logger().info(f"{fire_id} suppressed")
         else:
             self.get_logger().warn(f"Failed to suppress {fire_id}: not found")
+
+    def _handle_reduce_fire(self, msg):
+        """reduce 토픽을 구독하여 해당 fire_id의 radius를 0.1 감소. radius <= 0이면 제거"""
+        fire_id = msg.data.strip()
+
+        if not isinstance(fire_id, str) or not fire_id.startswith("Fire_"):
+            self.get_logger().warn(f"Invalid fire_id: {fire_id}")
+            return
+
+        node = self.fire_manager.get_webots_node(fire_id)
+        if not node:
+            self.get_logger().warn(f"Failed to reduce {fire_id}: not found")
+            return
+
+        current_radius = self._read_fire_radius(node)
+        new_radius = round(current_radius - 0.1, 2)
+
+        if new_radius <= 0.0:
+            self.fire_manager.remove_object(fire_id)
+            self.get_logger().info(f"{fire_id} extinguished (radius -> 0)")
+        else:
+            node.getField("radius").setSFFloat(new_radius)
+            self.get_logger().info(f"{fire_id} reduced: {current_radius:.2f} -> {new_radius:.2f}")
 
     def _read_fire_radius(self, webots_node):
         """Webots Fire PROTO node에서 radius 필드를 읽음"""

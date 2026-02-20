@@ -130,7 +130,7 @@ class UGVNavServer(Node):
         self.declare_parameter("min_passable_dist", 2.0)        # 통과 가능 최소 거리
         self.declare_parameter("robot_width", 1.0)              # 로봇 폭 + 여유  1.0
         self.declare_parameter("obstacle_distance_slow", 5.0)   # 감속 시작 거리
-        self.declare_parameter("obstacle_distance_stop", 1.2)   # 긴급 정지 거리
+        self.declare_parameter("obstacle_distance_stop", 0.5)   # 긴급 정지 거리
         self.declare_parameter("front_sector_angle", 45.0)      # 전방 감시 각도 (deg)
         self.declare_parameter("avoidance_gain", 10.0)           # 회피 강도
 
