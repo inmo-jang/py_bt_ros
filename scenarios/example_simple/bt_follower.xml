@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+  <BehaviorTree ID="bt_follower">
+    <Parallel failure_count="None"
+              success_count="None">
+      <GatherLocalInfo/>
+      <LearnBT/>
+      <AssignTarget/>
+      <AgentBT>
+        <Wait/>
+      </AgentBT>
+    </Parallel>
+  </BehaviorTree>
+
+  <!-- Description of Node Models (used by Groot) -->
+  <TreeNodesModel>
+    <Decorator ID="AgentBT"
+               editable="true"/>
+    <Action ID="Wait"
+            editable="true"/>
+    <Action ID="GatherLocalInfo"
+            editable="true"/>
+    <Action ID="LearnBT"
+            editable="true"/>
+    <Action ID="AssignTarget"
+            editable="true"/>
+  </TreeNodesModel>
+
+</root>
