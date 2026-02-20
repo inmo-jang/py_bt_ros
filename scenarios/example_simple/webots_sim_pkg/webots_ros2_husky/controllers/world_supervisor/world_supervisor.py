@@ -178,9 +178,6 @@ class WorldSupervisor(Node):
 
         self._create_initial_publishers()
 
-        self.remove_services = {}  # suppress 같은 "삭제" 서비스들 관리
-        self.spawn_services = {}
-
         self.fire_total_spawned = len(self.fire_manager.get_active_object_names())
         self.fire_summary_publishers = self.create_publisher(UInt16MultiArray, "/world/fire/summary", 1)  # Fire Summary
 
@@ -197,7 +194,6 @@ class WorldSupervisor(Node):
         self.fire_spread_distance_max = 5.0      # 확산 최대 거리
 
         self._create_spawn_services()
-        self._create_initial_remove_services()
 
         # Fire 자동 스폰 타이머
         if self.fire_auto_spawn_enabled:
@@ -229,6 +225,8 @@ class WorldSupervisor(Node):
         self.create_service(Empty, "/world/fire/spawn", self._handle_spawn_fire)
         # Fire 지정 생성 / x, y, radius
         self.create_subscription(Float64MultiArray, "/world/fire/spawn_custom", self._handle_spawn_fire_custom, 1)
+        # Fire suppress / fire_id를 String으로 받음
+        self.create_subscription(String, "/world/fire/suppress", self._handle_suppress_fire, 1)
 
     def _handle_spawn_fire(self, request, response):
         """Fire를 랜덤 위치/크기로 생성"""
@@ -242,7 +240,6 @@ class WorldSupervisor(Node):
         def_name = self.fire_manager.spawn_object(rand_x, rand_y, default_z, radius=rand_radius)
 
         if def_name:
-            self._create_suppress_service_for_fire(def_name)
             self.get_logger().info(f"Spawned {def_name} at ({rand_x}, {rand_y}) with radius {rand_radius}")
             self.fire_total_spawned += 1
         else:
@@ -260,7 +257,6 @@ class WorldSupervisor(Node):
         def_name = self.fire_manager.spawn_object(x, y, 0.0, radius=radius)
 
         if def_name:
-            self._create_suppress_service_for_fire(def_name)
             self.get_logger().info(f"Spawned {def_name} at ({x}, {y}) with radius {radius}")
             self.fire_total_spawned += 1
         else:
@@ -317,11 +313,6 @@ class WorldSupervisor(Node):
 
             self.get_logger().info(f"Spawned {def_name} at ({x}, {y})")
 
-    def _create_initial_remove_services(self):
-        """초기 존재 객체들의 suppress 서비스 생성"""
-        for def_name in self.fire_manager.get_active_object_names():
-            self._create_suppress_service_for_fire(def_name)
-
     # ===== Fire 자동 스폰 =====
     def _auto_spawn_fire(self):
         """랜덤 위치에 Fire 자동 생성"""
@@ -336,7 +327,6 @@ class WorldSupervisor(Node):
 
         def_name = self.fire_manager.spawn_object(rand_x, rand_y, 0.0, radius=rand_radius)
         if def_name:
-            self._create_suppress_service_for_fire(def_name)
             self.fire_total_spawned += 1
             self.get_logger().info(f"[Auto] Spawned {def_name} at ({rand_x}, {rand_y}) radius={rand_radius}")
 
@@ -391,38 +381,22 @@ class WorldSupervisor(Node):
 
         def_name = self.fire_manager.spawn_object(new_x, new_y, 0.0, radius=new_radius)
         if def_name:
-            self._create_suppress_service_for_fire(def_name)
             self.fire_total_spawned += 1
             self.get_logger().info(f"[Spread] {source_fire} -> {def_name} at ({new_x}, {new_y}) radius={new_radius}")
 
-    def _create_suppress_service_for_fire(self, def_name: str):
-        """Fire suppress 서비스 생성"""
-        service_name = f"/world/fire/{def_name}/suppress"
-        service = self.create_service(Empty, service_name, self._make_fire_suppress_callback(def_name))
-        self.remove_services[def_name] = service
-
-    def _make_fire_suppress_callback(self, def_name: str):
-        """suppress 서비스 콜 시 Fire 제거 + 리소스 정리 (서비스 destroy는 지연)"""
-        def callback(request, response):
-            success = self.fire_manager.remove_object(def_name)
-            if not success:
-                return response
-
-            self.get_logger().info(f"{def_name} suppressed")
-
-            cleanup_timer = None
-
-            def cleanup_services():
-                nonlocal cleanup_timer
-                if def_name in self.remove_services:
-                    self.destroy_service(self.remove_services[def_name])
-                    del self.remove_services[def_name]
-                if cleanup_timer:
-                    cleanup_timer.cancel()
-
-            cleanup_timer = self.create_timer(0.1, cleanup_services)
-            return response
-        return callback
+    def _handle_suppress_fire(self, msg):
+        """suppress 토픽을 구독하여 해당 fire_id를 제거"""
+        fire_id = msg.data.strip()
+        
+        if not isinstance(fire_id, str) or not fire_id.startswith("Fire_"):
+            self.get_logger().warn(f"Invalid fire_id: {fire_id}")
+            return
+        
+        success = self.fire_manager.remove_object(fire_id)
+        if success:
+            self.get_logger().info(f"{fire_id} suppressed")
+        else:
+            self.get_logger().warn(f"Failed to suppress {fire_id}: not found")
 
     def _read_fire_radius(self, webots_node):
         """Webots Fire PROTO node에서 radius 필드를 읽음"""
