@@ -149,6 +149,10 @@ ros2 service call /world/fire/spawn std_srvs/srv/Empty
 
 ### (Optional) RViz Visualisation
 
+```
+rviz2 -d scenarios/example_simple/webots_sim_pkg/webots_ros2_husky/default_view.rviz
+```
+
 Launch Webots with `debug:=true` (Step 1), then open RViz and add the following displays:
 
 | Display | Topic | Notes |
