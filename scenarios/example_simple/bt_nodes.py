@@ -31,10 +31,8 @@ BTNodeList.CONDITION_NODES.extend(CUSTOM_CONDITION_NODES)
 
 # ── Config shortcuts ───────────────────────────────────────────────────────────
 
-_agent_cfg  = config.get('agent', {})
-_self_ns    = _agent_cfg.get('namespaces', '')
-_peer_nss   = _agent_cfg.get('peer_namespaces', [])
-_arrive_thr = config.get('tasks', {}).get('threshold_done_by_arrival', 1.0)
+_agent_cfg   = config.get('agent', {})
+_comm_radius = _agent_cfg.get('comm_radius', 0.0)
 _map_bounds = config.get('tasks', {}).get('locations', {})
 
 
@@ -45,28 +43,42 @@ class GatherLocalInfo(ConditionWithROSTopics):
         super().__init__(name, agent, [
             (PoseStamped, f"{ns}/pose_world", "ego_pose"),
             (String, 'world/fire/list', 'local_tasks_info'),
+            (String, f"{ns}/local_comm/inbox", 'local_comm_inbox'),
         ])
 
+        # outbox publisher: 자신의 상태를 robot_supervisor에 broadcast
+        self._pub_outbox = agent.ros_bridge.node.create_publisher(
+            String, f"{ns}/local_comm/outbox", 10
+        )
 
     def _predicate(self, agent, blackboard):
-        cache = self._cache  # 베이스 설계대로 내부 캐시 사용
-        if "local_tasks_info" not in cache or "ego_pose" not in cache:
+        cache = self._cache
+
+        # [1] Outbox broadcast: 이전 틱에서 설정한 상태를 먼저 송신
+        outbox = blackboard.get('local_comm_outbox')
+        if outbox is not None:
+            msg = String()
+            msg.data = json.dumps(outbox)
+            self._pub_outbox.publish(msg)
+
+        # [2] 필수 topic 수신 확인: 하나라도 없으면 False
+        required = ["ego_pose", "local_tasks_info"]
+        if any(k not in cache for k in required):
             return False
 
-        # Tasks List: JSON 문자열을 파싱하여 리스트로 변환
+        # [3] 필수 데이터 처리
         try:
-            raw_data = cache["local_tasks_info"].data
-            tasks_list = json.loads(raw_data)
+            tasks_list = json.loads(cache["local_tasks_info"].data)
         except (json.JSONDecodeError, TypeError):
-            tasks_list = []        
+            tasks_list = []
         blackboard["local_tasks_info"] = tasks_list
-        
+        blackboard["ego_position"] = (cache["ego_pose"].pose.position.x, cache["ego_pose"].pose.position.y)
 
-        # Agent Pose: PoseStamped 메시지에서 (x,y) 좌표 추출
-        ego_pose = cache["ego_pose"]
-        blackboard["ego_position"] = (ego_pose.pose.position.x, ego_pose.pose.position.y)
-
-        # TODO: local agents info
+        # [4] 선택적 topic: 미수신 시 빈 리스트로 폴백
+        try:
+            blackboard['local_comm_inbox'] = json.loads(cache["local_comm_inbox"].data)
+        except (KeyError, AttributeError, json.JSONDecodeError, TypeError):
+            blackboard['local_comm_inbox'] = []
 
         return True
     
@@ -92,10 +104,18 @@ class AssignTask(SyncAction):
             assigned_task_id = min(task_dist_list, key=lambda x: x[1])[0]
 
         blackboard['assigned_task_id'] = assigned_task_id
-        if assigned_task_id is None:            
-            return Status.FAILURE        
-        else:                        
-            return Status.SUCCESS    
+
+        # Update outbox for GatherLocalInfo to broadcast on next tick
+        blackboard['local_comm_outbox'] = {
+            "robot_id": (agent.ros_namespace or '').lstrip('/'),
+            "comm_radius": _comm_radius,
+            "assigned_task_id": assigned_task_id,
+        }
+
+        if assigned_task_id is None:
+            return Status.FAILURE
+        else:
+            return Status.SUCCESS
 
 
 # ── IsTaskCompleted ────────────────────────────────────────────────────────────

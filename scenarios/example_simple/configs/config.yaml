@@ -3,6 +3,7 @@ scenario:
 
 agent:
   namespaces: "/Fire_UGV_1"  # default; override with --ns, e.g. --ns /Fire_UGV_2
+  comm_radius: 10.0           # local communication reception radius (meters)
   behavior_tree_xml: "default_bt.xml"
 
 bt_runner:
