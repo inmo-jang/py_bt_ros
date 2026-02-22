@@ -116,10 +116,12 @@ python3 scenarios/example_simple/action_servers/nav_action_server.py --ns /Fire_
 
 ### Step 3: Run BT Runners (one terminal per robot)
 
+Use `--ns` to specify each robot's namespace. All robots share the same `config.yaml`.
+
 ```bash
-python3 main.py --config=scenarios/example_simple/configs/config_1.yaml
-python3 main.py --config=scenarios/example_simple/configs/config_2.yaml
-python3 main.py --config=scenarios/example_simple/configs/config_3.yaml
+python3 main.py --config=scenarios/example_simple/configs/config.yaml --ns /Fire_UGV_1
+python3 main.py --config=scenarios/example_simple/configs/config.yaml --ns /Fire_UGV_2
+python3 main.py --config=scenarios/example_simple/configs/config.yaml --ns /Fire_UGV_3
 ```
 
 ### Manual Test Commands
@@ -150,9 +152,7 @@ example_simple/
 ├── action_servers/
 │   └── nav_action_server.py   # NavigateToPose action server (gap-based avoidance)
 ├── configs/
-│   ├── config_1.yaml           # Config for Fire_UGV_1
-│   ├── config_2.yaml           # Config for Fire_UGV_2
-│   └── config_3.yaml           # Config for Fire_UGV_3
+│   └── config.yaml             # Shared config (namespace set via --ns at runtime)
 └── webots_sim_pkg/
     └── webots_ros2_husky/
         ├── launch/

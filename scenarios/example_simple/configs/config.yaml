@@ -2,7 +2,7 @@ scenario:
   environment: scenarios.example_simple
 
 agent:
-  namespaces: "/Fire_UGV_2"  # used as ROS namespace for the agent's nodes and topics
+  namespaces: "/Fire_UGV_1"  # default; override with --ns, e.g. --ns /Fire_UGV_2
   behavior_tree_xml: "default_bt.xml"
 
 bt_runner:
