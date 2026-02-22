@@ -78,6 +78,7 @@ ReactiveSequence
 | `/world/fire/spawn_custom` | `std_msgs/Float64MultiArray` | Sub | Spawn fire at `[x, y, radius]` |
 | `/world/fire/suppress` | `std_msgs/String` | Sub | Immediately remove fire (`"Fire_1"`) |
 | `/world/fire/reduce` | `std_msgs/String` | Sub | Reduce fire radius by 0.1 (`"Fire_1"`) |
+| `/world/visualisation/comm_topology` | `visualization_msgs/MarkerArray` | Pub | Communication links between robots as green lines (**debug mode only**) |
 
 ### Per-Robot Topics (`N` = 1, 2, 3)
 
@@ -103,7 +104,11 @@ source install/local_setup.bash
 ### Step 1: Launch Webots Simulation
 
 ```bash
+# Normal run
 ros2 launch webots_ros2_husky robot_launch.py
+
+# With debug visualisation topics (e.g. comm_topology)
+ros2 launch webots_ros2_husky robot_launch.py debug:=true
 ```
 
 ### Step 2: Run Action Servers (one terminal per robot)
@@ -139,6 +144,20 @@ ros2 topic pub --once /world/fire/spawn_custom std_msgs/msg/Float64MultiArray "{
 # Spawn fire at a random location
 ros2 service call /world/fire/spawn std_srvs/srv/Empty
 ```
+
+
+
+### (Optional) RViz Visualisation
+
+Launch Webots with `debug:=true` (Step 1), then open RViz and add the following displays:
+
+| Display | Topic | Notes |
+|---------|-------|-------|
+| **PoseStamped** | `/Fire_UGV_N/pose_world` | Set **Fixed Frame** to `world` |
+| **MarkerArray** | `/world/visualisation/comm_topology` | Green lines between robots within comm_radius |
+
+Communication topology lines have a 1 s lifetime and auto-expire when robots go silent.
+
 
 ---
 

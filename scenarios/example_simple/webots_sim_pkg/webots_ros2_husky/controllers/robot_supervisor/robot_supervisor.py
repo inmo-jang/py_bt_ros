@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Robot Supervisor 
+Robot Supervisor
 - Webots world에서 여러 로봇의 translation/rotation을 읽어서
   /{robot_id}/pose_world (PoseStamped) 로 publish
 
@@ -8,6 +8,10 @@ Robot Supervisor
   /{robot_id}/local_comm/outbox (JSON) 를 수집하고
   수신 로봇의 comm_radius 기준으로 이웃만 필터링하여
   /{robot_id}/local_comm/inbox (JSON array) 로 publish
+
+- (debug 모드) communication topology 시각화:
+  /world/visualisation/comm_topology (MarkerArray) 로 publish
+  robot_launch.py 에서 debug:=true 로 실행 시 활성화
 
 권장:
 - 로봇 고유 ID는 DEF 사용 (robot_launch.py도 DEF 기반)
@@ -21,11 +25,15 @@ OUTBOX_TIMEOUT = 0.5  # seconds: 이 시간 이상 outbox 미수신 시 stale로
 from controller import Supervisor
 import json
 import math
+import os
 import time
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseStamped
+import tf2_ros
+from builtin_interfaces.msg import Duration
+from geometry_msgs.msg import Point, PoseStamped, TransformStamped
 from std_msgs.msg import String
+from visualization_msgs.msg import Marker, MarkerArray
 
 
 def axis_angle_to_quaternion(axis_x, axis_y, axis_z, angle):
@@ -81,6 +89,11 @@ class TrackedRobot:
         t = self.translation_field.getSFVec3f()
         return (t[0], t[1])
 
+    def get_position_3d(self):
+        """Webots translation field에서 (x, y, z) 반환"""
+        t = self.translation_field.getSFVec3f()
+        return (t[0], t[1], t[2])
+
     def publish_world_pose(self):
         t = self.translation_field.getSFVec3f()
         r = self.rotation_field.getSFRotation()
@@ -115,6 +128,24 @@ class RobotSupervisor:
         self.log = self.node.get_logger()
 
         self.frame_id_world = "world"
+
+        # Publish static TF so RViz can use "world" as Fixed Frame
+        self._tf_static = tf2_ros.StaticTransformBroadcaster(self.node)
+        t = TransformStamped()
+        t.header.stamp = self.node.get_clock().now().to_msg()
+        t.header.frame_id = "world"
+        t.child_frame_id = "world_fixed"
+        t.transform.rotation.w = 1.0
+        self._tf_static.sendTransform(t)
+
+        # Debug mode: enable visualisation topics (set via ROBOT_SUPERVISOR_DEBUG env var)
+        self.debug = os.environ.get('ROBOT_SUPERVISOR_DEBUG', 'false').lower() == 'true'
+        if self.debug:
+            self._pub_comm_topology = self.node.create_publisher(
+                MarkerArray, '/world/visualisation/comm_topology', 10
+            )
+            self.log.info("Debug mode ON: publishing /world/visualisation/comm_topology")
+
         self.def_prefixes = ROBOT_DEF_PREFIXES
 
         self.tracked = []
@@ -151,8 +182,6 @@ class RobotSupervisor:
             except Exception as e:
                 self.log.warn(f"Failed to track robot DEF='{def_name}': {e}")
 
-    
-
     def _is_stale(self, robot) -> bool:
         if robot.last_outbox_time is None:
             return True
@@ -160,12 +189,19 @@ class RobotSupervisor:
 
     def _relay_communications(self):
         """수신 로봇의 comm_radius 기준으로 이웃 outbox를 inbox에 전달"""
+        # 시각화용: 통신 엣지 집합 (frozenset으로 중복 제거) 및 위치 캐시
+        comm_edges = set()
+        positions = {}
+
         for receiver in self.tracked:
             if self._is_stale(receiver):
                 continue  # 수신 로봇 자체가 stale이면 inbox 계산 불필요
 
             comm_radius = receiver.last_outbox.get("comm_radius", 0.0)
             rx, ry = receiver.get_position_2d()
+
+            if self.debug:
+                positions[receiver.robot_id] = receiver.get_position_3d()
 
             neighbors = []
             for sender in self.tracked:
@@ -178,8 +214,51 @@ class RobotSupervisor:
                 dist = math.sqrt((rx - sx) ** 2 + (ry - sy) ** 2)
                 if dist <= comm_radius:
                     neighbors.append(sender.last_outbox)
+                    if self.debug:
+                        positions[sender.robot_id] = sender.get_position_3d()
+                        comm_edges.add(frozenset([receiver.robot_id, sender.robot_id]))
 
             receiver.publish_inbox(neighbors)
+
+        if self.debug:
+            self._publish_comm_topology(comm_edges, positions)
+
+    def _publish_comm_topology(self, edges: set, positions: dict):
+        """통신 엣지를 LINE_LIST Marker로 publish"""
+        marker = Marker()
+        marker.header.stamp = self.node.get_clock().now().to_msg()
+        marker.header.frame_id = self.frame_id_world
+        marker.ns = "comm_topology"
+        marker.id = 0
+        marker.type = Marker.LINE_LIST
+        marker.action = Marker.ADD
+        marker.scale.x = 0.1          # line width (metres)
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 0.0
+        marker.color.a = 0.8
+        marker.pose.orientation.w = 1.0
+        marker.lifetime = Duration(sec=1, nanosec=0)  # auto-expire if updates stop
+
+        for edge in edges:
+            ids = list(edge)
+            if len(ids) != 2:
+                continue
+            a_id, b_id = ids[0], ids[1]
+            if a_id not in positions or b_id not in positions:
+                continue
+
+            ax, ay, az = positions[a_id]
+            bx, by, bz = positions[b_id]
+
+            p1 = Point(x=float(ax), y=float(ay), z=float(az))
+            p2 = Point(x=float(bx), y=float(by), z=float(bz))
+            marker.points.append(p1)
+            marker.points.append(p2)
+
+        msg = MarkerArray()
+        msg.markers.append(marker)
+        self._pub_comm_topology.publish(msg)
 
     def run(self):
         while self.supervisor.step(self.timestep) != -1 and rclpy.ok():

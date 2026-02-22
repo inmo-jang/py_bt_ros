@@ -2,7 +2,8 @@ import os
 import re
 import launch
 from launch import LaunchDescription
-from launch.actions import SetEnvironmentVariable  # ✅ 추가
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
+from launch.substitutions import LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
 from webots_ros2_driver.webots_launcher import WebotsLauncher
 from webots_ros2_driver.webots_controller import WebotsController
@@ -43,6 +44,13 @@ def generate_launch_description():
         SetEnvironmentVariable('WEBOTS_EXTRA_PROJECT_PATH', extra_path),
         SetEnvironmentVariable('WEBOTS_PROJECT_PATH', proj_path),
     ]
+
+    # debug:=true 시 robot_supervisor가 /world/visualisation/comm_topology를 publish
+    debug_arg = DeclareLaunchArgument(
+        'debug', default_value='false',
+        description='Enable debug visualisation topics (e.g. comm_topology in RViz)'
+    )
+    set_debug_env = SetEnvironmentVariable('ROBOT_SUPERVISOR_DEBUG', LaunchConfiguration('debug'))
 
     # Start a Webots simulation instance
     world_path = os.path.join(package_dir, 'worlds', 'fire_suppression.wbt')
@@ -108,6 +116,8 @@ def generate_launch_description():
 
     # LaunchDescription 구성
     launch_items = [
+        debug_arg,
+        set_debug_env,
         *set_webots_paths,   # ✅ webots 앞에 들어가야 함
         webots,
         robot_state_publisher,
