@@ -139,13 +139,16 @@ class RobotSupervisor:
         t.transform.rotation.w = 1.0
         self._tf_static.sendTransform(t)
 
-        # Debug mode: enable visualisation topics (set via ROBOT_SUPERVISOR_DEBUG env var)
-        self.debug = os.environ.get('ROBOT_SUPERVISOR_DEBUG', 'false').lower() == 'true'
+        # Debug mode: enable visualisation topics (set via DEBUG env var)
+        self.debug = os.environ.get('DEBUG', 'false').lower() == 'true'
         if self.debug:
             self._pub_comm_topology = self.node.create_publisher(
                 MarkerArray, '/world/visualisation/comm_topology', 10
             )
-            self.log.info("Debug mode ON: publishing /world/visualisation/comm_topology")
+            self._pub_task_assignment = self.node.create_publisher(
+                MarkerArray, '/world/visualisation/task_assignment', 10
+            )
+            self.log.info("Debug mode ON: publishing /world/visualisation/comm_topology, /world/visualisation/task_assignment")
 
         self.def_prefixes = ROBOT_DEF_PREFIXES
 
@@ -222,6 +225,7 @@ class RobotSupervisor:
 
         if self.debug:
             self._publish_comm_topology(comm_edges, positions)
+            self._publish_task_assignment()
 
     def _publish_comm_topology(self, edges: set, positions: dict):
         """통신 엣지를 LINE_LIST Marker로 publish"""
@@ -233,7 +237,7 @@ class RobotSupervisor:
         marker.type = Marker.LINE_LIST
         marker.action = Marker.ADD
         marker.scale.x = 0.1          # line width (metres)
-        marker.color.r = 0.0
+        marker.color.r = 1.0
         marker.color.g = 1.0
         marker.color.b = 0.0
         marker.color.a = 0.8
@@ -259,6 +263,46 @@ class RobotSupervisor:
         msg = MarkerArray()
         msg.markers.append(marker)
         self._pub_comm_topology.publish(msg)
+
+    def _publish_task_assignment(self):
+        """각 로봇의 outbox에서 assigned_task_id를 읽어 로봇↔Fire 간 LINE으로 publish"""
+        marker = Marker()
+        marker.header.stamp = self.node.get_clock().now().to_msg()
+        marker.header.frame_id = self.frame_id_world
+        marker.ns = "task_assignment"
+        marker.id = 0
+        marker.type = Marker.LINE_LIST
+        marker.action = Marker.ADD
+        marker.scale.x = 0.12
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 1.0
+        marker.color.a = 0.9
+        marker.pose.orientation.w = 1.0
+        marker.lifetime = Duration(sec=1, nanosec=0)
+
+        for robot in self.tracked:
+            if self._is_stale(robot):
+                continue
+            outbox = robot.last_outbox
+            if outbox is None:
+                continue
+            assigned_task_id = outbox.get('assigned_task_id')
+            if not assigned_task_id:
+                continue
+
+            fire_node = self.supervisor.getFromDef(assigned_task_id)
+            if fire_node is None:
+                continue
+            fire_t = fire_node.getField("translation").getSFVec3f()
+            robot_t = robot.get_position_3d()
+
+            marker.points.append(Point(x=float(robot_t[0]), y=float(robot_t[1]), z=float(robot_t[2])))
+            marker.points.append(Point(x=float(fire_t[0]), y=float(fire_t[1]), z=float(fire_t[2])))
+
+        msg = MarkerArray()
+        msg.markers.append(marker)
+        self._pub_task_assignment.publish(msg)
 
     def run(self):
         while self.supervisor.step(self.timestep) != -1 and rclpy.ok():

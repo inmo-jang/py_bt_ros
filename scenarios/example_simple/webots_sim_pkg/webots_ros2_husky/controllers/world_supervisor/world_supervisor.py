@@ -13,11 +13,13 @@ import os
 import random
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Point
 from std_srvs.srv import Empty
 from std_msgs.msg import UInt8, String  # ✅ UInt8 추가 (Target status용)
 from std_msgs.msg import UInt16MultiArray  # Target을 Summary 형태로 전달하기 위해 추가
 from std_msgs.msg import Float64MultiArray  # Custom fire spawn용
+from builtin_interfaces.msg import Duration
+from visualization_msgs.msg import Marker, MarkerArray
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -174,6 +176,10 @@ class WorldSupervisor(Node):
         self._scan_initial_objects()
 
         self.fire_list_publisher = self.create_publisher(String, "/world/fire/list", 1)
+        self.debug = os.environ.get('DEBUG', 'false').lower() == 'true'
+        if self.debug:
+            self.fire_markers_publisher = self.create_publisher(MarkerArray, "/world/visualisation/fires", 1)
+            self.get_logger().info("Debug mode ON: publishing /world/visualisation/fires")
         self.base_publisher = None
 
         self._create_initial_publishers()
@@ -468,6 +474,8 @@ class WorldSupervisor(Node):
         self.last_publish_time = now
 
         self._publish_fire_list()
+        if self.debug:
+            self._publish_fire_markers()
 
         if self.base_node and self.base_publisher:
             self.base_publisher.publish(self._read_pose(self.base_node))
@@ -493,6 +501,42 @@ class WorldSupervisor(Node):
         msg = String()
         msg.data = json.dumps(fire_list)
         self.fire_list_publisher.publish(msg)
+
+    def _publish_fire_markers(self):
+        """활성 Fire를 SPHERE MarkerArray로 /world/visualisation/fires에 publish"""
+        marker_array = MarkerArray()
+        stamp = self.get_clock().now().to_msg()
+
+        for idx, def_name in enumerate(self.fire_manager.get_active_object_names()):
+            node = self.fire_manager.get_webots_node(def_name)
+            if not node:
+                continue
+            trans = node.getField("translation").getSFVec3f()
+            radius = self._read_fire_radius(node)
+
+            marker = Marker()
+            marker.header.stamp = stamp
+            marker.header.frame_id = "world"
+            marker.ns = "fires"
+            marker.id = idx
+            marker.type = Marker.SPHERE
+            marker.action = Marker.ADD
+            marker.pose.position.x = float(trans[0])
+            marker.pose.position.y = float(trans[1])
+            marker.pose.position.z = float(trans[2])
+            marker.pose.orientation.w = 1.0
+            diameter = float(radius) * 2.0
+            marker.scale.x = diameter
+            marker.scale.y = diameter
+            marker.scale.z = diameter
+            marker.color.r = 1.0
+            marker.color.g = 0.0
+            marker.color.b = 0.0
+            marker.color.a = 0.5  # 반투명
+            marker.lifetime = Duration(sec=2, nanosec=0)  # 2초간 미갱신 시 자동 소멸
+            marker_array.markers.append(marker)
+
+        self.fire_markers_publisher.publish(marker_array)
 
 
 def main():

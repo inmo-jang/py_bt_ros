@@ -45,12 +45,12 @@ def generate_launch_description():
         SetEnvironmentVariable('WEBOTS_PROJECT_PATH', proj_path),
     ]
 
-    # debug:=true 시 robot_supervisor가 /world/visualisation/comm_topology를 publish
+    # debug:=true 시 robot_supervisor, world_supervisor 모두 visualisation topics publish
     debug_arg = DeclareLaunchArgument(
         'debug', default_value='false',
-        description='Enable debug visualisation topics (e.g. comm_topology in RViz)'
+        description='Enable debug visualisation topics (comm_topology, fires in RViz)'
     )
-    set_debug_env = SetEnvironmentVariable('ROBOT_SUPERVISOR_DEBUG', LaunchConfiguration('debug'))
+    set_debug_env = SetEnvironmentVariable('DEBUG', LaunchConfiguration('debug'))
 
     # Start a Webots simulation instance
     world_path = os.path.join(package_dir, 'worlds', 'fire_suppression.wbt')
