@@ -9,7 +9,7 @@ The goal is to demonstrate that the BT (Behaviour Tree)-based multi-robot archit
 ### Scenario Description
 
 - Environment: Webots `fire_suppression.wbt` world (indoor fire suppression map)
-- Robots: **Fire_UGV_1**, **Fire_UGV_2**, **Fire_UGV_3** (3 Husky-based UGVs)
+- Robots: **Fire_UGV_N** (6 Husky-based UGVs)
 - Objective: Each robot autonomously detects, approaches, and suppresses fires
 
 Each robot is driven by an independent BT. It selects the nearest fire, approaches it, and repeatedly reduces its radius until the fire is extinguished. Fires spread to surrounding areas over time.
@@ -17,6 +17,10 @@ Each robot is driven by an independent BT. It selects the nearest fire, approach
 > ⚠️ **Current Limitation**: The `AssignTask` node uses a simple greedy strategy (select the nearest fire). Cooperative task allocation among multiple robots is not yet implemented and needs further refinement.
 
 ---
+
+
+![Demo](demo.gif)
+
 
 ## System Architecture
 
