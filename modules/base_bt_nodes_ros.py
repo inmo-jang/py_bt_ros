@@ -103,9 +103,18 @@ class ActionWithROSAction(Node):
         # Action Request를 수신하여 진행되는 도중
         if self._phase == 'running':
             if self._result_future and self._result_future.done():
-                res = self._result_future.result()   # <- get_result 응답
-                self.status = self._interpret_result(res.result, agent, blackboard, res.status)
+                try:
+                    res = self._result_future.result()   # <- get_result 응답
+                    self.status = self._interpret_result(res.result, agent, blackboard, res.status)
+                except Exception:
+                    # 서버 사망 등으로 future가 exception/cancel된 경우
+                    self.status = Status.FAILURE
                 self._phase = 'idle'
+                return self.status
+            # 서버가 도중에 죽었는지 확인
+            if not self.client.wait_for_server(timeout_sec=0.0):
+                self._phase = 'idle'
+                self.status = Status.FAILURE
                 return self.status
             self._on_running(agent, blackboard)
             self.status = Status.RUNNING
@@ -115,7 +124,12 @@ class ActionWithROSAction(Node):
         return self.status
 
     def _on_goal_response(self, future):
-        self._goal_handle = future.result()
+        try:
+            self._goal_handle = future.result()
+        except Exception:
+            # 서버 사망 등으로 goal response를 못 받은 경우
+            self._phase = 'idle'
+            return
         if not self._goal_handle.accepted:
             self._phase = 'idle'
             return

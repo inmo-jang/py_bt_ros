@@ -30,3 +30,12 @@ class Agent:
         self._reset_bt_action_node_status()
         return await self.tree.run(self, self.blackboard)
 
+    def halt_tree(self):
+        """트리 전체를 재귀적으로 halt — 종료 시 진행 중인 ROS Action goal 취소에 사용."""
+        def _halt(node):
+            if hasattr(node, 'children'):
+                for child in node.children:
+                    _halt(child)
+            node.halt()
+        _halt(self.tree)
+

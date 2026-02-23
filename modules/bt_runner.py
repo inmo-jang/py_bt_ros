@@ -48,7 +48,8 @@ class BTRunner:
 
 
     def close(self):
-        pass
+        if self.agent and hasattr(self.agent, 'tree'):
+            self.agent.halt_tree()
 
     def render(self):
         if self.bt_viz_cfg.get('enabled', False):

@@ -1,6 +1,7 @@
 import asyncio
 import argparse
 import cProfile
+import signal
 
 from modules.utils import set_config
 
@@ -20,18 +21,25 @@ bt_runner = BTRunner(config)
 
 
 async def loop():
-    while bt_runner.running:
-        bt_runner.handle_keyboard_events()
-        if not bt_runner.paused:
-            await bt_runner.step()
-        bt_runner.render()
-
-    bt_runner.close()
-
+    # SIGTERM → running=False → loop 종료 → finally에서 close() 호출
+    asyncio.get_event_loop().add_signal_handler(
+        signal.SIGTERM, lambda: setattr(bt_runner, 'running', False)
+    )
+    try:
+        while bt_runner.running:
+            bt_runner.handle_keyboard_events()
+            if not bt_runner.paused:
+                await bt_runner.step()
+            bt_runner.render()
+    finally:
+        bt_runner.close()  # halt_tree() → cancel active ROS Action goals
 
 
 if __name__ == "__main__":
     if config['bt_runner']['profiling_mode']:
         cProfile.run('main()', sort='cumulative')
     else:
-        asyncio.run(loop())
+        try:
+            asyncio.run(loop())
+        except KeyboardInterrupt:
+            pass  # bt_runner.close()는 loop() finally에서 이미 호출됨
