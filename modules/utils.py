@@ -38,6 +38,17 @@ def convert_value(v): # "None" → None; 문자열 숫자는 숫자로 변환
     return v
 
 
+class AttrDict(dict):
+    """dict 키를 속성처럼 접근할 수 있는 래퍼.
+    task.position == task['position'] == task.get('position')
+    """
+    def __getattr__(self, key):
+        try:
+            return self[key]
+        except KeyError:
+            raise AttributeError(key)
+
+
 def optional_import(name):
     if not name:
         return None

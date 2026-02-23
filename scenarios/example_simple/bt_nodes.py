@@ -2,9 +2,11 @@ import math
 import json
 import random
 
-from modules.base_bt_nodes import BTNodeList, Status, Node, Sequence, Fallback, ReactiveSequence, ReactiveFallback, SyncAction
+import pygame
+
+from modules.base_bt_nodes import BTNodeList, Status, Node, Sequence, Fallback, ReactiveSequence, ReactiveFallback, SyncAction, AssignTask, SyncCondition
 from modules.base_bt_nodes_ros import ActionWithROSAction, ConditionWithROSTopics
-from modules.utils import config
+from modules.utils import config, AttrDict
 
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
@@ -31,8 +33,6 @@ BTNodeList.CONDITION_NODES.extend(CUSTOM_CONDITION_NODES)
 
 # ── Config shortcuts ───────────────────────────────────────────────────────────
 
-_agent_cfg   = config.get('agent', {})
-_comm_radius = _agent_cfg.get('comm_radius', 0.0)
 _map_bounds = config.get('tasks', {}).get('locations', {})
 
 
@@ -51,11 +51,13 @@ class GatherLocalInfo(ConditionWithROSTopics):
             String, f"{ns}/local_comm/outbox", 10
         )
 
+        self.agent = agent  # outbox 송신 위해 agent 속성 저장
+
     def _predicate(self, agent, blackboard):
         cache = self._cache
 
         # [1] Outbox broadcast: 이전 틱에서 설정한 상태를 먼저 송신
-        outbox = blackboard.get('local_comm_outbox')
+        outbox = getattr(agent, 'message_to_share', {})  # GatherLocalInfo 실행 시점에 agent의 임시 속성에서 메시지 가져오기
         if outbox is not None:
             msg = String()
             msg.data = json.dumps(outbox)
@@ -68,87 +70,43 @@ class GatherLocalInfo(ConditionWithROSTopics):
 
         # [3] 필수 데이터 처리
         try:
-            tasks_list = json.loads(cache["local_tasks_info"].data)
+            tasks_list = [AttrDict(t) for t in json.loads(cache["local_tasks_info"].data)]
+            for task in tasks_list:
+                task['position'] = pygame.math.Vector2(task['x'], task['y'])
+                task['amount'] = task.get('radius', 0.0)
+                # 여기서 또다른 전처리가 필요하면 추가 가능
         except (json.JSONDecodeError, TypeError):
             tasks_list = []
-        blackboard["local_tasks_info"] = tasks_list
-        blackboard["ego_position"] = (cache["ego_pose"].pose.position.x, cache["ego_pose"].pose.position.y)
+        blackboard["local_tasks_info"] = {t.task_id: t for t in tasks_list}
+        self.agent.position = pygame.math.Vector2(cache["ego_pose"].pose.position.x, cache["ego_pose"].pose.position.y)
 
-        # [4] 선택적 topic: 미수신 시 빈 리스트로 폴백
+        # [4] 수신 메시지: 미수신 시 빈 리스트로 폴백
         try:
-            blackboard['local_comm_inbox'] = json.loads(cache["local_comm_inbox"].data)
+            self.agent.messages_received = json.loads(cache["local_comm_inbox"].data)
         except (KeyError, AttributeError, json.JSONDecodeError, TypeError):
-            blackboard['local_comm_inbox'] = []
+            self.agent.messages_received = {}
 
         return True
     
-class AssignTask(SyncAction):
-    def __init__(self, name, agent):
-        super().__init__(name, self._decide)
-        # if decision_making_class is None:
-        #     raise RuntimeError("[AssignTask] 'decision_making.plugin' is not set in config.")
-        # self.decision_maker = decision_making_class(agent)
-
-    def _decide(self, agent, blackboard):
-        local_tasks_info = blackboard.get('local_tasks_info', [])
-        ego_position = blackboard.get('ego_position', None)
-        task_dist_list = []
-        for t in local_tasks_info:
-            dist = math.hypot(ego_position[0] - t['x'], ego_position[1] - t['y'])
-            task_dist_list.append((t['id'], dist))
-
-        # Assign the closest task
-        if not task_dist_list:
-            assigned_task_id = None
-        else:
-            assigned_task_id = min(task_dist_list, key=lambda x: x[1])[0]
-
-        blackboard['assigned_task_id'] = assigned_task_id
-
-        # Update outbox for GatherLocalInfo to broadcast on next tick
-        blackboard['local_comm_outbox'] = {
-            "robot_id": (agent.ros_namespace or '').lstrip('/'),
-            "comm_radius": _comm_radius,
-            "assigned_task_id": assigned_task_id,
-        }
-
-        if assigned_task_id is None:
-            return Status.FAILURE
-        else:
-            return Status.SUCCESS
 
 
 # ── IsTaskCompleted ────────────────────────────────────────────────────────────
 
-class IsTaskCompleted(ConditionWithROSTopics):
+class IsTaskCompleted(SyncCondition):
     def __init__(self, name, agent):
-        super().__init__(name, agent, [
-            (String, 'world/fire/list', 'local_tasks_info'),
-        ])
+        super().__init__(name, self._update)
 
-    def _predicate(self, agent, blackboard) -> bool:
-        cache = self._cache  # 베이스 설계대로 내부 캐시 사용
-        if "local_tasks_info" not in cache:
-            return False
-
-        # Tasks List: JSON 문자열을 파싱하여 리스트로 변환
-        try:
-            raw_data = cache["local_tasks_info"].data
-            tasks_list = json.loads(raw_data)
-        except (json.JSONDecodeError, TypeError):
-            tasks_list = []        
-        # blackboard["local_tasks_info"] = tasks_list  # ✅ 매 프레임 새로 갱신하기보다는 GatherLocalInfo에서만 업데이트하도록 변경
-
-        # Check if assigned task is still in the list (not completed)
+    def _update(self, agent, blackboard):        
         assigned_task_id = blackboard.get('assigned_task_id', None)
         if assigned_task_id is None:
-            return False
-        task_ids = [t['id'] for t in tasks_list]
-        if assigned_task_id in task_ids:
-            return False
+            return Status.FAILURE 
         
-        return True  
+        local_tasks_info = blackboard.get('local_tasks_info', {})
+        if assigned_task_id in local_tasks_info:
+            return Status.FAILURE  # 아직 불이 남아있음
 
+        return Status.SUCCESS  # 불이 사라짐 = 완료    
+    
 
 
 # ── MoveToTarget ───────────────────────────────────────────────────────────────
@@ -165,8 +123,7 @@ class MoveToTarget(ActionWithROSAction):
 
     def _build_goal(self, agent, blackboard):
         task_id = blackboard.get('assigned_task_id')
-        tasks   = blackboard.get('local_tasks_info', [])
-        task    = next((t for t in tasks if t['id'] == task_id), None)
+        task    = blackboard.get('local_tasks_info', {}).get(task_id)
         if task is None:
             return False
 
@@ -283,8 +240,7 @@ class IsArrivedAtTarget(ConditionWithROSTopics):
         ego_pose = cache["ego_pose"]
         target_id = blackboard.get("assigned_task_id", None)
 
-        local_tasks_info = blackboard.get("local_tasks_info", [])
-        target_info = next((t for t in local_tasks_info if t['id'] == target_id), None)
+        target_info = blackboard.get("local_tasks_info", {}).get(target_id)
         if target_info is None:
             return False
 

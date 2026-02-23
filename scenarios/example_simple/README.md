@@ -71,7 +71,7 @@ ReactiveSequence
 
 | Topic | Type | Direction | Description |
 |-------|------|-----------|-------------|
-| `/world/fire/list` | `std_msgs/String` (JSON) | Pub | Active fire list `[{id, x, y, z, radius}, ...]` |
+| `/world/fire/list` | `std_msgs/String` (JSON) | Pub | Active fire list `[{task_id, x, y, z, radius}, ...]` |
 | `/world/fire/summary` | `std_msgs/UInt16MultiArray` | Pub | `[total_spawned, active, suppressed]` |
 | `/world/base/pose` | `geometry_msgs/PoseStamped` | Pub | Base location |
 | `/world/fire/spawn` | `std_srvs/Empty` (service) | Sub | Spawn a fire at a random location |

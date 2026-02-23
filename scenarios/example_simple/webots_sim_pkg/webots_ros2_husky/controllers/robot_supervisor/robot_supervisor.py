@@ -2,12 +2,12 @@
 """
 Robot Supervisor
 - Webots world에서 여러 로봇의 translation/rotation을 읽어서
-  /{robot_id}/pose_world (PoseStamped) 로 publish
+  /{agent_id}/pose_world (PoseStamped) 로 publish
 
 - 로봇간 local communication 중계:
-  /{robot_id}/local_comm/outbox (JSON) 를 수집하고
+  /{agent_id}/local_comm/outbox (JSON) 를 수집하고
   수신 로봇의 comm_radius 기준으로 이웃만 필터링하여
-  /{robot_id}/local_comm/inbox (JSON array) 로 publish
+  /{agent_id}/local_comm/inbox (JSON array) 로 publish
 
 - (debug 모드) communication topology 시각화:
   /world/visualisation/comm_topology (MarkerArray) 로 publish
@@ -21,6 +21,7 @@ Robot Supervisor
 # robot_launch.py의 ROBOTS_NAME_LIST와 동일하게 유지할 것
 ROBOT_DEF_PREFIXES = ["Fire_UGV"]
 OUTBOX_TIMEOUT = 0.5  # seconds: 이 시간 이상 outbox 미수신 시 stale로 판정
+COMM_RADIUS    = 10.0 # metres: local communication emulation 수신 반경
 
 from controller import Supervisor
 import json
@@ -47,10 +48,10 @@ def axis_angle_to_quaternion(axis_x, axis_y, axis_z, angle):
 
 
 class TrackedRobot:
-    def __init__(self, ros_node: Node, wb_node, robot_id: str, frame_id_world: str):
+    def __init__(self, ros_node: Node, wb_node, agent_id: str, frame_id_world: str):
         self.node = ros_node
         self.wb_node = wb_node
-        self.robot_id = robot_id
+        self.agent_id = agent_id
         self.frame_id_world = frame_id_world
 
         self.translation_field = wb_node.getField("translation")
@@ -58,20 +59,20 @@ class TrackedRobot:
 
         # pose publisher: Webots 월드에서 읽은 pose를 ROS topic으로 publish
         self.pub_pose_world = ros_node.create_publisher(
-            PoseStamped, f"/{self.robot_id}/pose_world", 10
+            PoseStamped, f"/{self.agent_id}/pose_world", 10
         )
 
         # local comm: 로봇이 broadcast하는 outbox 수신
         self.sub_outbox = ros_node.create_subscription(
             String,
-            f"/{self.robot_id}/local_comm/outbox",
+            f"/{self.agent_id}/local_comm/outbox",
             self._on_outbox,
             10
         )
 
         # local comm: 이웃 정보를 로봇에게 전달하는 inbox 송신
         self.pub_inbox = ros_node.create_publisher(
-            String, f"/{self.robot_id}/local_comm/inbox", 10
+            String, f"/{self.agent_id}/local_comm/inbox", 10
         )
 
         self.last_outbox = None       # 최신 outbox dict (None = 아직 수신 전)
@@ -82,7 +83,7 @@ class TrackedRobot:
             self.last_outbox = json.loads(msg.data)
             self.last_outbox_time = time.time()
         except json.JSONDecodeError as e:
-            self.node.get_logger().warn(f"[{self.robot_id}] outbox JSON parse error: {e}")
+            self.node.get_logger().warn(f"[{self.agent_id}] outbox JSON parse error: {e}")
 
     def get_position_2d(self):
         """Webots translation field에서 (x, y) 반환"""
@@ -152,7 +153,7 @@ class RobotSupervisor:
         self._discover_robots_by_def()
 
         self.log.info("===== robot_supervisor started =====")
-        self.log.info(f"Tracked robots (DEF): {[r.robot_id for r in self.tracked]}")
+        self.log.info(f"Tracked robots (DEF): {[r.agent_id for r in self.tracked]}")
 
     def _discover_robots_by_def(self):
         root = self.supervisor.getRoot()
@@ -188,35 +189,34 @@ class RobotSupervisor:
         return (time.time() - robot.last_outbox_time) > OUTBOX_TIMEOUT
 
     def _relay_communications(self):
-        """수신 로봇의 comm_radius 기준으로 이웃 outbox를 inbox에 전달"""
+        """COMM_RADIUS 기준으로 이웃 outbox를 inbox에 전달.
+        receiver는 outbox 송신 여부와 무관하게 inbox를 수신한다.
+        sender는 stale 감지 시 이웃에서 제외된다.
+        """
         # 시각화용: 통신 엣지 집합 (frozenset으로 중복 제거) 및 위치 캐시
         comm_edges = set()
         positions = {}
 
         for receiver in self.tracked:
-            if self._is_stale(receiver):
-                continue  # 수신 로봇 자체가 stale이면 inbox 계산 불필요
-
-            comm_radius = receiver.last_outbox.get("comm_radius", 0.0)
             rx, ry = receiver.get_position_2d()
 
             if self.debug:
-                positions[receiver.robot_id] = receiver.get_position_3d()
+                positions[receiver.agent_id] = receiver.get_position_3d()
 
             neighbors = []
             for sender in self.tracked:
-                if sender.robot_id == receiver.robot_id:
+                if sender.agent_id == receiver.agent_id:
                     continue
                 if self._is_stale(sender):
                     continue  # stale sender는 이웃에서 제외
 
                 sx, sy = sender.get_position_2d()
                 dist = math.sqrt((rx - sx) ** 2 + (ry - sy) ** 2)
-                if dist <= comm_radius:
+                if dist <= COMM_RADIUS:
                     neighbors.append(sender.last_outbox)
                     if self.debug:
-                        positions[sender.robot_id] = sender.get_position_3d()
-                        comm_edges.add(frozenset([receiver.robot_id, sender.robot_id]))
+                        positions[sender.agent_id] = sender.get_position_3d()
+                        comm_edges.add(frozenset([receiver.agent_id, sender.agent_id]))
 
             receiver.publish_inbox(neighbors)
 

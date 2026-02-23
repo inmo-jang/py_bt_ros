@@ -484,7 +484,7 @@ class WorldSupervisor(Node):
             trans = node.getField("translation").getSFVec3f()
             radius = self._read_fire_radius(node)
             fire_list.append({
-                "id": def_name,
+                "task_id": def_name,
                 "x": float(trans[0]),
                 "y": float(trans[1]),
                 "z": float(trans[2]),
