@@ -21,7 +21,7 @@ Robot Supervisor
 # robot_launch.py의 ROBOTS_NAME_LIST와 동일하게 유지할 것
 ROBOT_DEF_PREFIXES = ["Fire_UGV"]
 OUTBOX_TIMEOUT = 0.5  # seconds: 이 시간 이상 outbox 미수신 시 stale로 판정
-COMM_RADIUS    = 10.0 # metres: local communication emulation 수신 반경
+COMM_RADIUS    = 30.0 # metres: local communication emulation 수신 반경
 
 from controller import Supervisor
 import json
@@ -148,7 +148,10 @@ class RobotSupervisor:
             self._pub_task_assignment = self.node.create_publisher(
                 MarkerArray, '/world/visualisation/task_assignment', 10
             )
-            self.log.info("Debug mode ON: publishing /world/visualisation/comm_topology, /world/visualisation/task_assignment")
+            self._pub_robot_markers = self.node.create_publisher(
+                MarkerArray, '/world/visualisation/robots', 10
+            )
+            self.log.info("Debug mode ON: publishing /world/visualisation/comm_topology, /world/visualisation/task_assignment, /world/visualisation/robots")
 
         self.def_prefixes = ROBOT_DEF_PREFIXES
 
@@ -226,6 +229,7 @@ class RobotSupervisor:
         if self.debug:
             self._publish_comm_topology(comm_edges, positions)
             self._publish_task_assignment()
+            self._publish_robot_markers()
 
     def _publish_comm_topology(self, edges: set, positions: dict):
         """통신 엣지를 LINE_LIST Marker로 publish"""
@@ -303,6 +307,42 @@ class RobotSupervisor:
         msg = MarkerArray()
         msg.markers.append(marker)
         self._pub_task_assignment.publish(msg)
+
+    def _publish_robot_markers(self):
+        """각 로봇의 위치·방향을 ARROW Marker로 publish"""
+        msg = MarkerArray()
+        stamp = self.node.get_clock().now().to_msg()
+
+        for idx, robot in enumerate(self.tracked):
+            t = robot.translation_field.getSFVec3f()
+            r = robot.rotation_field.getSFRotation()
+            q = axis_angle_to_quaternion(r[0], r[1], r[2], r[3])
+
+            marker = Marker()
+            marker.header.stamp = stamp
+            marker.header.frame_id = self.frame_id_world
+            marker.ns = "robots"
+            marker.id = idx
+            marker.type = Marker.ARROW
+            marker.action = Marker.ADD
+            marker.pose.position.x = float(t[0])
+            marker.pose.position.y = float(t[1])
+            marker.pose.position.z = float(t[2])
+            marker.pose.orientation.x = float(q[0])
+            marker.pose.orientation.y = float(q[1])
+            marker.pose.orientation.z = float(q[2])
+            marker.pose.orientation.w = float(q[3])
+            marker.scale.x = 1.0   # shaft length (metres)
+            marker.scale.y = 0.2   # shaft diameter
+            marker.scale.z = 0.3   # arrowhead diameter
+            marker.color.r = 0.5
+            marker.color.g = 1.0
+            marker.color.b = 0.2
+            marker.color.a = 0.9
+            marker.lifetime = Duration(sec=1, nanosec=0)
+            msg.markers.append(marker)
+
+        self._pub_robot_markers.publish(msg)
 
     def run(self):
         while self.supervisor.step(self.timestep) != -1 and rclpy.ok():

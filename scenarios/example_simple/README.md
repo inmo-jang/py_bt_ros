@@ -119,6 +119,18 @@ python3 scenarios/example_simple/action_servers/nav_action_server.py --ns /Fire_
 python3 scenarios/example_simple/action_servers/nav_action_server.py --ns /Fire_UGV_3
 ```
 
+> **(Optional) Launch all robots at once with a shell script**
+>
+> ```bash
+> # Default: 10 robots (Fire_UGV_1 ~ Fire_UGV_10)
+> bash scenarios/example_simple/scripts/run_action_servers.sh
+>
+> # Or specify the number of robots
+> bash scenarios/example_simple/scripts/run_action_servers.sh 3
+> ```
+>
+> Press **Ctrl+C** to stop all action servers at once.
+
 ### Step 3: Run BT Runners (one terminal per robot)
 
 Use `--ns` to specify each robot's namespace. All robots share the same `config.yaml`.
@@ -128,6 +140,18 @@ python3 main.py --config=scenarios/example_simple/configs/config.yaml --ns /Fire
 python3 main.py --config=scenarios/example_simple/configs/config.yaml --ns /Fire_UGV_2
 python3 main.py --config=scenarios/example_simple/configs/config.yaml --ns /Fire_UGV_3
 ```
+
+> **(Optional) Launch all robots at once with a shell script**
+>
+> ```bash
+> # Default: 10 robots (Fire_UGV_1 ~ Fire_UGV_10)
+> bash scenarios/example_simple/scripts/run_bt_runners.sh
+>
+> # Or specify the number of robots
+> bash scenarios/example_simple/scripts/run_bt_runners.sh 3
+> ```
+>
+> Press **Ctrl+C** to stop all BT runners at once.
 
 ### Manual Test Commands
 

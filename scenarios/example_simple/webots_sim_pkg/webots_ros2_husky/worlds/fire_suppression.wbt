@@ -14,8 +14,8 @@ IMPORTABLE EXTERNPROTO "../protos/Fire.proto"
 WorldInfo {
 }
 Viewpoint {
-  orientation 0.2508174714167723 -0.0007437945226059575 -0.9680341124163988 3.147322571789997
-  position 18.409678126034713 15.189994512558538 20.17864474660723
+  orientation 0.2797406555226821 -0.0022281420713460127 -0.9600730185931953 3.156876114543464
+  position 1.7522886390450232 18.35753852950577 13.374960596335569
 }
 TexturedBackground {
   texture "noon_cloudy_countryside"
@@ -426,17 +426,52 @@ DEF Base Pose {
   ]
 }
 DEF Fire_UGV_1 Fire_UGV {
-  translation -14 19 0.15
+  translation -14 19 0.13
   rotation 0 0 1 -0.785395307179586
   name "Fire_UGV_1"
 }
 DEF Fire_UGV_2 Fire_UGV {
-  translation -16.6013 16.2987 0.25
+  translation -15.2788 17.6212 0.13
   rotation 0 0 1 -0.785395307179586
   name "Fire_UGV_2"
 }
 DEF Fire_UGV_3 Fire_UGV {
-  translation -18.9545 13.8455 0.35
+  translation -12.1321 20.768 0.13
   rotation 0 0 1 -0.785395307179586
   name "Fire_UGV_3"
+}
+DEF Fire_UGV_4 Fire_UGV {
+  translation -15.505 20.6049 0.13
+  rotation 0 0 -1 0.785395307179586
+  name "Fire_UGV_4"
+}
+DEF Fire_UGV_5 Fire_UGV {
+  translation -17.3991 18.6107 0.13
+  rotation 0 0 -1 0.785395307179586
+  name "Fire_UGV_5"
+}
+DEF Fire_UGV_6 Fire_UGV {
+  translation -19.5759 16.3338 0.13
+  rotation 0 0 -1 0.785395307179586
+  name "Fire_UGV_6"
+}
+DEF Fire_UGV_7 Fire_UGV {
+  translation -19.8719 19.0208 0.13
+  rotation 0 0 -1 0.785395307179586
+  name "Fire_UGV_7"
+}
+DEF Fire_UGV_8 Fire_UGV {
+  translation -17.9191 20.8736 0.13
+  rotation 0 0 -1 0.785395307179586
+  name "Fire_UGV_8"
+}
+DEF Fire_UGV_9 Fire_UGV {
+  translation -16.6013 16.2987 0.13
+  rotation 0 0 1 -0.785395307179586
+  name "Fire_UGV_9"
+}
+DEF Fire_UGV_10 Fire_UGV {
+  translation -18.9545 13.8455 0.13
+  rotation 0 0 1 -0.785395307179586
+  name "Fire_UGV_10"
 }
