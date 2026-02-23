@@ -188,16 +188,21 @@ class WorldSupervisor(Node):
         self.fire_summary_publishers = self.create_publisher(UInt16MultiArray, "/world/fire/summary", 1)  # Fire Summary
 
         # ===== Fire 자동 스폰 및 확산 설정 =====
-        self.fire_auto_spawn_enabled = False      # 자동 스폰 활성화 여부
+        self.fire_auto_spawn_enabled = True      # 자동 스폰 활성화 여부
         self.fire_auto_spawn_interval = 20.0     # 자동 스폰 간격 (초)
         self.fire_spawn_range = 20.0             # 스폰 가능 범위 (+/-)
-        self.fire_max_count = 20                 # 최대 Fire 개수 제한
+        self.fire_max_count = 100                 # 최대 Fire 개수 제한
 
         self.fire_spread_enabled = True          # 확산 활성화 여부
         self.fire_spread_interval = 5.0         # 확산 시도 간격 (초)
         self.fire_spread_probability = 0.8       # 확산 확률 (0.0 ~ 1.0)
         self.fire_spread_distance_min = 2.0      # 확산 최소 거리
         self.fire_spread_distance_max = 5.0      # 확산 최대 거리
+
+        self.fire_radius_growth_enabled = True   # 반경 성장 활성화 여부
+        self.fire_radius_growth_interval = 10.0   # 반경 성장 적용 간격 (초)
+        self.fire_radius_growth_rate = 0.02      # 초당 반경 증가량 (m/s)
+        self.fire_radius_max = 5.0               # 반경 최대값 (m)
 
         self._create_spawn_services()
 
@@ -210,6 +215,11 @@ class WorldSupervisor(Node):
         if self.fire_spread_enabled:
             self.fire_spread_timer = self.create_timer(self.fire_spread_interval, self._spread_fire_from_existing)
             self.get_logger().info(f"Fire spread enabled: every {self.fire_spread_interval}s, prob={self.fire_spread_probability}")
+
+        # Fire 반경 성장 타이머
+        if self.fire_radius_growth_enabled:
+            self.fire_radius_growth_timer = self.create_timer(self.fire_radius_growth_interval, self._grow_fire_radius)
+            self.get_logger().info(f"Fire radius growth enabled: every {self.fire_radius_growth_interval}s, rate={self.fire_radius_growth_rate}m/s, max={self.fire_radius_max}m")
 
         self.last_publish_time = self.get_clock().now()
         self.get_logger().info("WorldSupervisor ready")
@@ -391,6 +401,20 @@ class WorldSupervisor(Node):
         if def_name:
             self.fire_total_spawned += 1
             self.get_logger().info(f"[Spread] {source_fire} -> {def_name} at ({new_x}, {new_y}) radius={new_radius}")
+
+    # ===== Fire 반경 성장 =====
+    def _grow_fire_radius(self):
+        """모든 활성 Fire의 radius를 growth_rate만큼 증가 (fire_radius_max 상한)"""
+        growth = self.fire_radius_growth_rate * self.fire_radius_growth_interval
+        for def_name in list(self.fire_manager.active_objects.keys()):
+            node = self.fire_manager.get_webots_node(def_name)
+            if not node:
+                continue
+            current_radius = self._read_fire_radius(node)
+            if current_radius >= self.fire_radius_max:
+                continue
+            new_radius = round(min(current_radius + growth, self.fire_radius_max), 3)
+            node.getField("radius").setSFFloat(new_radius)
 
     def _handle_suppress_fire(self, msg):
         """suppress 토픽을 구독하여 해당 fire_id를 제거"""
