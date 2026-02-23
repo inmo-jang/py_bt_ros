@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-Rescue UGV NavigateToPose Action Server (Refactored + Robust Scan Normalization)
-- Gap-based obstacle avoidance (틈새 주행 알고리즘)
+Rescue UGV NavigateToPose Action Server
+- Tangential obstacle avoidance: steer perpendicular to nearest obstacle
 - INF(개활지) 반영 + 거리 클리핑(<=0.5 -> 0.0, >=12 -> inf)
 - angle_increment < 0 인 scan 정규화 (좌/우 뒤집힘 방지)
 - angular.z 양수 => 왼쪽 회전 (ROS 표준)
 """
 
 import math
+import threading
 import time
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, Tuple, List
 
 import rclpy
 from rclpy.node import Node
@@ -46,12 +47,11 @@ def quaternion_to_yaw(q) -> float:
 class UGVNavServer(Node):
     """
     NavigateToPose Action Server for Rescue UGV
-    - Logic: Goal tracking + Gap-based obstacle avoidance
+    - Logic: Goal tracking + Tangential obstacle avoidance
     - Robust scan preprocessing:
         * normalize reversed scan (angle_increment < 0)
         * <= 0.5m -> 0.0 (blocked)
         * >= 12m -> inf (open)
-        * inf included in gap candidates (treated as far distance)
     """
 
     def __init__(self, ns: str = ""):
@@ -67,6 +67,8 @@ class UGVNavServer(Node):
         # State
         self._current_pose: Optional[PoseStamped] = None
         self._raw_scan: Optional[LaserScan] = None
+        self._active_goal_handle = None
+        self._goal_lock = threading.Lock()
 
         # Processed scan cache (normalized + clipped)
         self._scan_ranges: Optional[List[float]] = None
@@ -96,6 +98,7 @@ class UGVNavServer(Node):
             execute_callback=self._execute_callback,
             goal_callback=self._goal_callback,
             cancel_callback=self._cancel_callback,
+            handle_accepted_callback=self._handle_accepted_callback,
             callback_group=self._cb_group
         )
 
@@ -126,22 +129,15 @@ class UGVNavServer(Node):
         # 목표 도착 판정
         self.declare_parameter("goal_tolerance", 0.3)
 
-        # 장애물 회피 설정 (Gap-based)
-        self.declare_parameter("min_passable_dist", 2.0)        # 통과 가능 최소 거리
-        self.declare_parameter("robot_width", 1.0)              # 로봇 폭 + 여유  1.0
-        self.declare_parameter("obstacle_distance_slow", 5.0)   # 감속 시작 거리
-        self.declare_parameter("obstacle_distance_stop", 0.5)   # 긴급 정지 거리
+        # 장애물 회피 설정 (Tangential)
+        self.declare_parameter("obstacle_distance_slow", 1.0)   # 감속 시작 거리
+        self.declare_parameter("obstacle_distance_stop", 1.0)   # 긴급 정지 거리
         self.declare_parameter("front_sector_angle", 45.0)      # 전방 감시 각도 (deg)
-        self.declare_parameter("avoidance_gain", 10.0)           # 회피 강도
+        self.declare_parameter("avoidance_gain", 0.5)           # 회피 각속도 (rad/s), tangent 방향으로 회전할 강도
 
-        # ✅ Scan preprocessing 요구사항 반영
-        self.declare_parameter("clip_close_dist", 0.5)          # <= 이하면 0.0 처리  0.5
+        # Scan preprocessing
+        self.declare_parameter("clip_close_dist", 0.5)          # <= 이하면 0.0 처리
         self.declare_parameter("clip_open_dist", 12.0)          # >= 이면 inf 처리
-
-        # Gap scoring weights (goal 정렬 반영 강화)
-        self.declare_parameter("w_goal_align", 1.0)             # 목표 정렬 가중치
-        self.declare_parameter("w_gap_width", 0.3)             # gap 폭 가중치 0.25
-        self.declare_parameter("w_gap_dist", 0.10)              # gap 거리 가중치
 
     def _load_parameters(self):
         self.control_rate = float(self.get_parameter("control_rate").value)
@@ -153,8 +149,6 @@ class UGVNavServer(Node):
         self.heading_tolerance = float(self.get_parameter("heading_tolerance").value)
         self.goal_tolerance = float(self.get_parameter("goal_tolerance").value)
 
-        self.min_passable_dist = float(self.get_parameter("min_passable_dist").value)
-        self.robot_width = float(self.get_parameter("robot_width").value)
         self.obstacle_distance_slow = float(self.get_parameter("obstacle_distance_slow").value)
         self.obstacle_distance_stop = float(self.get_parameter("obstacle_distance_stop").value)
         self.front_sector_angle = math.radians(float(self.get_parameter("front_sector_angle").value))
@@ -162,10 +156,6 @@ class UGVNavServer(Node):
 
         self.clip_close_dist = float(self.get_parameter("clip_close_dist").value)
         self.clip_open_dist = float(self.get_parameter("clip_open_dist").value)
-
-        self.w_goal_align = float(self.get_parameter("w_goal_align").value)
-        self.w_gap_width = float(self.get_parameter("w_gap_width").value)
-        self.w_gap_dist = float(self.get_parameter("w_gap_dist").value)
 
         self.rotation_shim_threshold = float(self.get_parameter("rotation_shim_threshold").value)        
 
@@ -227,6 +217,15 @@ class UGVNavServer(Node):
         self.get_logger().info("Goal cancellation requested")
         return CancelResponse.ACCEPT
 
+    def _handle_accepted_callback(self, goal_handle):
+        """새 goal 수락 시 기존 goal을 즉시 abort하고 새 goal 실행 (preemption)"""
+        with self._goal_lock:
+            if self._active_goal_handle is not None and self._active_goal_handle.is_active:
+                self.get_logger().info("Preempting current goal with new goal")
+                self._active_goal_handle.abort()
+            self._active_goal_handle = goal_handle
+        goal_handle.execute()
+
     def _publish_cmd(self, linear: float, angular: float):
         # angular.z > 0 => left turn (as user confirmed)
         msg = TwistStamped()
@@ -239,18 +238,13 @@ class UGVNavServer(Node):
     def _stop(self):
         self._publish_cmd(0.0, 0.0)
 
-    # ================= Gap Utilities =================
+    # ================= Scan Utilities =================
 
     def _scan_ready(self) -> bool:
         return self._scan_ranges is not None and self._raw_scan is not None and len(self._scan_ranges) > 0
 
     def _range_eff(self, r: float) -> float:
-        """
-        INF를 gap 계산에 반영하기 위한 '유효 거리'로 변환.
-        - r == inf => clip_open_dist 로 간주 (아주 멀리 트여있음)
-        - r == 0.0 => 0.0 (막힘)
-        - finite => 그대로
-        """
+        """INF -> clip_open_dist, 그 외 그대로 반환."""
         if math.isfinite(r):
             return r
         return self.clip_open_dist
@@ -259,103 +253,47 @@ class UGVNavServer(Node):
         """idx -> angle (rad), 0 rad = forward"""
         return self._scan_angle_min + idx * self._scan_angle_inc
 
-    def _find_gaps(self) -> List[Dict]:
-        """
-        LiDAR 데이터에서 통과 가능한 gap들을 찾음.
-        - INF도 passable로 인정 (clip_open_dist로 계산)
-        - gap 폭은 (min_dist * angular_width) 근사 사용
-        """
-        if not self._scan_ready():
-            return []
-
-        ranges = self._scan_ranges
-        n = len(ranges)
-        if n == 0:
-            return []
-
-        # 1) passable indices (INF 포함)
-        passable = []
-        for i, r in enumerate(ranges):
-            r_eff = self._range_eff(r)
-            if r_eff >= self.min_passable_dist:
-                passable.append(i)
-
-        if not passable:
-            return []
-
-        # 2) group consecutive indices into gaps
-        gaps_idx = []
-        gap_start = passable[0]
-        prev = passable[0]
-        for idx in passable[1:]:
-            if idx != prev + 1:
-                gaps_idx.append((gap_start, prev))
-                gap_start = idx
-            prev = idx
-        gaps_idx.append((gap_start, prev))
-
-        # 3) compute gap properties
-        result = []
-        for start_idx, end_idx in gaps_idx:
-            # min distance inside gap (INF -> clip_open_dist)
-            min_dist = float('inf')
-            for i in range(start_idx, end_idx + 1):
-                r_eff = self._range_eff(ranges[i])
-                if r_eff < min_dist:
-                    min_dist = r_eff
-
-            if not math.isfinite(min_dist):
-                # theoretically shouldn't happen due to _range_eff
-                min_dist = self.clip_open_dist
-
-            start_angle = self._angle_at(start_idx)
-            end_angle = self._angle_at(end_idx)
-            angular_width = abs(end_angle - start_angle)
-
-            center_idx = 0.5 * (start_idx + end_idx)
-            center_angle = self._angle_at(center_idx)
-
-            # physical width approximation
-            gap_width = min_dist * angular_width
-
-            if gap_width >= self.robot_width:
-                result.append({
-                    "start_idx": start_idx,
-                    "end_idx": end_idx,
-                    "center_angle": center_angle,  # rad, +left
-                    "min_dist": min_dist,
-                    "width": gap_width,
-                })
-
-        return result
-
     def _get_front_min_distance(self) -> float:
         """전방 섹터의 최소 거리 반환 (INF는 clip_open_dist로 간주)"""
         if not self._scan_ready():
             return float('inf')
 
-        ranges = self._scan_ranges
         min_dist = float('inf')
-
-        for i, r in enumerate(ranges):
-            angle = self._angle_at(i)
-            if abs(angle) > self.front_sector_angle:
+        for i, r in enumerate(self._scan_ranges):
+            if abs(self._angle_at(i)) > self.front_sector_angle:
                 continue
-
             r_eff = self._range_eff(r)
             if r_eff < min_dist:
                 min_dist = r_eff
-
         return min_dist
 
-    def _compute_obstacle_avoidance(self, goal_heading_error: float) -> Tuple[float, float, float]:
+    def _get_nearest_obstacle_angle(self) -> Optional[float]:
+        """전방 섹터에서 가장 가까운 실제 장애물의 각도(robot frame) 반환.
+        INF(개활지)는 장애물이 아니므로 제외."""
+        if not self._scan_ready():
+            return None
+
+        min_r = float('inf')
+        min_angle = None
+        for i, r in enumerate(self._scan_ranges):
+            if r == 0.0 or not math.isfinite(r):
+                continue
+            angle = self._angle_at(i)
+            if abs(angle) > self.front_sector_angle:
+                continue
+            if r < min_r:
+                min_r = r
+                min_angle = angle
+        return min_angle
+
+    def _compute_obstacle_avoidance(self) -> Tuple[float, float, float]:
         """
-        Gap-based 장애물 회피 계산.
+        Tangential 장애물 회피.
+        가장 가까운 장애물에 수직(접선) 방향으로 조향.
         반환: (front_min, avoidance_angular, danger_level)
         """
         front_min = self._get_front_min_distance()
 
-        # danger level
         if front_min <= self.obstacle_distance_stop:
             danger_level = 1.0
         elif front_min >= self.obstacle_distance_slow:
@@ -365,48 +303,29 @@ class UGVNavServer(Node):
                 self.obstacle_distance_slow - self.obstacle_distance_stop
             )
 
-        # not dangerous -> no avoidance
-        if danger_level < 0.1:
+        if danger_level <= 0.0:
+            return front_min, 0.0, 0.0
+
+        nearest_angle = self._get_nearest_obstacle_angle()
+        if nearest_angle is None:
             return front_min, 0.0, danger_level
 
-        gaps = self._find_gaps()
-        if not gaps:
-            # No gap: rotate away from goal heading direction (heuristic)
-            # heading_error > 0 => goal is left => rotate right (negative)
-            spin = -self.avoidance_gain if goal_heading_error > 0.0 else self.avoidance_gain
-            return front_min, spin, danger_level
-
-        # Choose best gap using:
-        # - goal alignment (closest to goal_heading_error)
-        # - wide gap
-        # - far gap
-        best_gap = None
-        best_score = -float("inf")
-
-        for g in gaps:
-            # 얼마나 목표 방향(상대각)과 잘 맞는가
-            align_err = abs(normalize_angle(g["center_angle"] - goal_heading_error))
-            goal_term = -align_err  # closer is better
-
-            score = (
-                self.w_goal_align * goal_term
-                + self.w_gap_width * g["width"]
-                + self.w_gap_dist * g["min_dist"]
-            )
-
-            if score > best_score:
-                best_score = score
-                best_gap = g
-
-        if best_gap is None:
-            return front_min, 0.0, danger_level
-
-        # angle_to_gap: +면 왼쪽, -면 오른쪽
-        angle_to_gap = best_gap["center_angle"]
-        avoidance_angular = self.avoidance_gain * angle_to_gap * danger_level
-
+        # 장애물 반대 방향으로 회전
+        # nearest_angle > 0 (왼쪽 장애물) → 오른쪽(음수) 회전
+        # nearest_angle < 0 (오른쪽 장애물) → 왼쪽(양수) 회전
+        avoidance_angular = -math.copysign(self.avoidance_gain, nearest_angle)
         return front_min, avoidance_angular, danger_level
 
+    def _get_full_scan_min_distance(self) -> float:
+        """전체 스캔(전방 180°)에서 가장 가까운 실제 장애물까지의 거리.
+        INF(개활지)는 장애물이 아니므로 제외."""
+        if not self._scan_ready():
+            return float('inf')
+        min_dist = float('inf')
+        for r in self._scan_ranges:
+            if r > 0.0 and math.isfinite(r) and r < min_dist:
+                min_dist = r
+        return min_dist
 
     def _compute_velocity(self, goal_x: float, goal_y: float) -> Tuple[float, float]:
         if self._current_pose is None:
@@ -423,47 +342,43 @@ class UGVNavServer(Node):
         target_yaw = math.atan2(dy, dx)
         heading_error = normalize_angle(target_yaw - yaw)  # +면 왼쪽
 
-        # --- [Rotation Shim 로직 시작] ---
-        # 각도 오차가 설정한 임계값보다 크면 '회전 전용' 모드 활성화
+        # Goal tracking용 속도 (RotationShim)
         is_rotating_only = abs(heading_error) > self.rotation_shim_threshold
-        
-        # 1. Goal tracking용 속도 계산
         goal_angular = clamp(self.k_angular * heading_error, -self.max_angular_vel, self.max_angular_vel)
-        
         if is_rotating_only:
-            goal_linear = 0.0  # 각도를 맞출 때까지 전진하지 않음
+            goal_linear = 0.0
         else:
-            goal_linear = self.k_linear * distance
-            # 전진 중에도 각도 오차에 따라 속도 가감속 (부드러운 곡선 주행용)
             heading_factor = max(math.cos(heading_error), 0.0)
             speed_scale = self.min_linear_scale + (1.0 - self.min_linear_scale) * heading_factor
-            goal_linear *= speed_scale
+            goal_linear = self.k_linear * distance * speed_scale
 
-        # 2. 장애물 회피(Gap-based) 계산
-        front_dist, avoidance_angular, danger_level = self._compute_obstacle_avoidance(heading_error)
+        # 장애물 체크
+        _, avoidance_angular, danger_level = self._compute_obstacle_avoidance()
+        full_scan_min = self._get_full_scan_min_distance()
 
-        # 3. 속도 최종 결정 및 블렌딩
-        if danger_level >= 1.0:
-            # 긴급 상황: 정지 후 회피 방향으로 회전
+        # ── 3단계 상태 결정 ──────────────────────────────────────────────────
+        if danger_level > 0.0:
+            # [1] 전방 ±45° 장애물 감지: 접선 방향으로 제자리 회전 (최우선)
             linear_vel = 0.0
-            angular_vel = clamp(avoidance_angular, -self.max_angular_vel, self.max_angular_vel)
-        elif is_rotating_only:
-            # Rotation Shim 상태: 항상 목표 방향으로 제자리 회전
-            # (긴급 상황은 danger_level >= 1.0 분기에서 처리됨)
-            linear_vel = 0.0
-            angular_vel = goal_angular
+            angular_vel = avoidance_angular
+        elif full_scan_min < self.obstacle_distance_slow:
+            # [2] 전방에서 벗어났지만 근처에 여전히 장애물 존재 (coast zone):
+            #     현재 방향 그대로 직진 → goal 재정렬 없음 (oscillation 방지)
+            linear_vel = self.max_linear_vel
+            angular_vel = 0.0
         else:
-            # 일반 주행 모드: Goal 방향과 Avoidance 방향을 블렌딩
-            blend = danger_level
-            angular_vel = (1.0 - blend) * goal_angular + blend * avoidance_angular
-            speed_reduction = 1.0 - (0.7 * blend)
-            linear_vel = goal_linear * speed_reduction
+            # [3] 장애물 없음: 일반 RotationShim 내비게이션
+            if is_rotating_only:
+                linear_vel = 0.0
+                angular_vel = goal_angular
+            else:
+                linear_vel = goal_linear
+                angular_vel = goal_angular
+        # ────────────────────────────────────────────────────────────────────
 
-        # 최종 출력값 제한
         linear_vel = clamp(linear_vel, 0.0, self.max_linear_vel)
         angular_vel = clamp(angular_vel, -self.max_angular_vel, self.max_angular_vel)
-        
-        return linear_vel, angular_vel    
+        return linear_vel, angular_vel
 
 
     async def _execute_callback(self, goal_handle):
@@ -480,6 +395,11 @@ class UGVNavServer(Node):
 
         try:
             while rclpy.ok():
+                if not goal_handle.is_active:
+                    # Preempted by a newer goal
+                    self._stop()
+                    return result
+
                 if goal_handle.is_cancel_requested:
                     self._stop()
                     goal_handle.canceled()
@@ -527,11 +447,13 @@ class UGVNavServer(Node):
         except Exception as e:
             self.get_logger().error(f"Navigation error: {e}")
             self._stop()
-            goal_handle.abort()
+            if goal_handle.is_active:
+                goal_handle.abort()
             return result
 
         self._stop()
-        goal_handle.abort()
+        if goal_handle.is_active:
+            goal_handle.abort()
         return result
 
     def destroy_node(self):
@@ -546,7 +468,7 @@ def main(args=None):
     # 네임스페이스 설정
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ns", type=str, default="/Fire_UGV_1", help="ROS namespace, e.g. /Fire_UGV_1")
+    parser.add_argument("--ns", type=str, default="/Fire_UGV_2", help="ROS namespace, e.g. /Fire_UGV_1")
     args = parser.parse_args()
 
     node = UGVNavServer(ns=args.ns)

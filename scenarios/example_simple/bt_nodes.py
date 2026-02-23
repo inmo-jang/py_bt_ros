@@ -120,12 +120,15 @@ class MoveToTarget(ActionWithROSAction):
     def __init__(self, name, agent):
         ns = agent.ros_namespace or ''
         super().__init__(name, agent, (NavigateToPose, f'{ns}/navigate_to_pose'))
+        self.moving_task_id = None  # 현재 이동 중인 task 정보 저장 (없으면 None)
 
     def _build_goal(self, agent, blackboard):
         task_id = blackboard.get('assigned_task_id')
         task    = blackboard.get('local_tasks_info', {}).get(task_id)
         if task is None:
             return False
+
+        self.moving_task_id = task_id  # 이동 시작 시점에 task_id 저장
 
         ps = PoseStamped()
         ps.header.frame_id    = 'world'
@@ -138,6 +141,13 @@ class MoveToTarget(ActionWithROSAction):
         goal.pose = ps
         return goal
 
+    def _on_running(self, agent, blackboard):
+        # 이동 중에도 목표 위치가 유효한지 체크: 만약 할당된 Task이 사라졌다면 목표 취소
+        task_id = blackboard.get('assigned_task_id')
+        if task_id != self.moving_task_id:        
+            if self._goal_handle is not None:
+                self._goal_handle.cancel_goal_async()
+            self.status = Status.FAILURE  # 목표 취소 후 실패 반환
 
 # ── ExecuteTask ────────────────────────────────────────────────────────────────
 
@@ -225,7 +235,7 @@ class Explore(ActionWithROSAction):
 
 
 class IsArrivedAtTarget(ConditionWithROSTopics):
-    def __init__(self, name, agent, default_thresh=0.6):
+    def __init__(self, name, agent, default_thresh=1.2):
         ns = agent.ros_namespace or ""
         super().__init__(name, agent, [(PoseStamped, f"{ns}/pose_world", "ego_pose")])
         self.default_thresh = default_thresh
