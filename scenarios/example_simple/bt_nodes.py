@@ -128,7 +128,7 @@ class MoveToTarget(ActionWithROSAction):
             return False
 
         ps = PoseStamped()
-        ps.header.frame_id    = 'map'
+        ps.header.frame_id    = 'world'
         ps.header.stamp       = self.ros.node.get_clock().now().to_msg()
         ps.pose.position.x    = float(task['x'])
         ps.pose.position.y    = float(task['y'])
@@ -191,9 +191,9 @@ class Explore(ActionWithROSAction):
 
     def _build_goal(self, agent, blackboard):
         ps = PoseStamped()
-        ps.header.frame_id    = 'map'
+        ps.header.frame_id    = 'world'
         ps.header.stamp       = self.ros.node.get_clock().now().to_msg()
-        
+
         x, y = self.get_random_goal()
         ps.pose.position.x    = x
         ps.pose.position.y    = y

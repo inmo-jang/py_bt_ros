@@ -231,7 +231,7 @@ class UGVNavServer(Node):
         # angular.z > 0 => left turn (as user confirmed)
         msg = TwistStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = "map"
+        msg.header.frame_id = "world"
         msg.twist.linear.x = float(linear)
         msg.twist.angular.z = float(angular)
         self._cmd_pub.publish(msg)
