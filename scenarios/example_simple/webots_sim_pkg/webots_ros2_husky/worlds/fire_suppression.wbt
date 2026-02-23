@@ -455,23 +455,3 @@ DEF Fire_UGV_6 Fire_UGV {
   rotation 0 0 -1 0.785395307179586
   name "Fire_UGV_6"
 }
-DEF Fire_UGV_7 Fire_UGV {
-  translation -8.3036 7.45253 0.13
-  rotation 0 0 -1 0.785395307179586
-  name "Fire_UGV_7"
-}
-DEF Fire_UGV_8 Fire_UGV {
-  translation -1.88198 4.83655 0.13
-  rotation 0 0 -1 0.785395307179586
-  name "Fire_UGV_8"
-}
-DEF Fire_UGV_9 Fire_UGV {
-  translation 2.0663 -2.36886 0.13
-  rotation 0 0 1 -0.785395307179586
-  name "Fire_UGV_9"
-}
-DEF Fire_UGV_10 Fire_UGV {
-  translation -18.9545 13.8455 0.13
-  rotation 0 0 1 -0.785395307179586
-  name "Fire_UGV_10"
-}
