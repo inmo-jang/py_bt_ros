@@ -1,5 +1,4 @@
 import random
-import time
 import pygame
 from modules.utils import config
 MODE = config['decision_making']['FirstClaimGreedy']['mode']
@@ -10,7 +9,7 @@ class FirstClaimGreedy: # Task selection within each agent's `situation_awarenes
     def __init__(self, agent):
         self.agent = agent
         self.assigned_task = None
-        self.my_claim_time = {}  # task_id -> 내가 해당 task를 claim한 timestamp
+        self.my_cost = {}  # task_id -> 내가 해당 task에 대해 계산한 cost (낮을수록 우선)
 
     def decide(self, blackboard):
         # Place your decision-making code for each agent
@@ -31,15 +30,16 @@ class FirstClaimGreedy: # Task selection within each agent's `situation_awarenes
             self.agent.message_to_share = {
                 'agent_id': self.agent.agent_id,
                 'assigned_task_id': None,
-                'time_stamp': None,
+                'cost': None,
+                'task_position': None,
             }
             return None
 
-        # Conflict resolution: 현재 assigned task를 이웃이 먼저 claim했으면 양보
+        # Conflict resolution: 현재 assigned task를 이웃이 더 낮은 cost로 claim했으면 양보
         if self.assigned_task is not None:
             if self._has_priority_conflict(assigned_task_id):
-                self.assigned_task = None  # 더 빠른 claim이 있으므로 양보
-                self.my_claim_time.pop(assigned_task_id, None)
+                self.assigned_task = None
+                self.my_cost.pop(assigned_task_id, None)
 
         # 매 tick마다 재평가: conflict resolution 후 최적 task 선택
         candidates = self.filter_tasks_with_conflict_resolution(list(local_tasks_info.values()))
@@ -47,7 +47,8 @@ class FirstClaimGreedy: # Task selection within each agent's `situation_awarenes
             self.agent.message_to_share = {
                 'agent_id': self.agent.agent_id,
                 'assigned_task_id': None,
-                'time_stamp': None,
+                'cost': None,
+                'task_position': None,
             }
             return None
 
@@ -59,56 +60,54 @@ class FirstClaimGreedy: # Task selection within each agent's `situation_awarenes
             target_task_id, _ = self.find_max_utility_task(candidates)
 
         self.assigned_task = local_tasks_info[target_task_id]
-        # 새로 claim한 경우에만 timestamp 기록 (이미 있으면 유지)
-        if target_task_id not in self.my_claim_time:
-            self.my_claim_time[target_task_id] = time.time()
+        # 매 tick마다 cost 갱신 (로봇 이동에 따라 변함)
+        self.my_cost[target_task_id] = self.compute_cost(self.assigned_task)
 
         self.agent.message_to_share = {
             'agent_id': self.agent.agent_id,
             'assigned_task_id': self.assigned_task.task_id,
-            'time_stamp': self.my_claim_time.get(self.assigned_task.task_id),
+            'task_position': {'x': self.assigned_task.position.x, 'y': self.assigned_task.position.y},  # 디버깅용 
+            'cost': self.my_cost.get(self.assigned_task.task_id),
         }
 
         return self.assigned_task.task_id
 
     def _has_priority_conflict(self, task_id) -> bool:
-        """이웃이 나보다 먼저 task_id를 claim했으면 True 반환."""
-        my_time = self.my_claim_time.get(task_id)
+        """이웃이 나보다 낮은 cost로 task_id를 claim했으면 True 반환."""
+        my_cost = self.my_cost.get(task_id)
         for msg in self.agent.messages_received:
             if msg.get('assigned_task_id') != task_id:
                 continue
-            neighbor_time = msg.get('time_stamp')
-            if neighbor_time is None:
+            neighbor_cost = msg.get('cost')
+            if neighbor_cost is None:
                 continue
-            if my_time is None or neighbor_time < my_time:
-                return True  # 이웃이 더 빠른 claim을 가짐
+            if my_cost is None or neighbor_cost < my_cost:
+                return True  # 이웃이 더 낮은 cost를 가짐
         return False
 
     def filter_tasks_with_conflict_resolution(self, tasks_info):
-        """내가 우선권을 가지는 task만 반환 (이웃이 먼저 claim했으면 제외)."""
+        """내가 우선권을 가지는 task만 반환 (이웃이 더 낮은 cost면 제외)."""
         result = []
         for task in tasks_info:
             task_id = task.task_id
-            my_time = self.my_claim_time.get(task_id)
+            my_cost = self.my_cost.get(task_id)
 
             yielded = False
             for msg in self.agent.messages_received:
                 if msg.get('assigned_task_id') != task_id:
                     continue
-                neighbor_time = msg.get('time_stamp')
-                if neighbor_time is None:
-                    # timestamp 없는 이웃 claim → 보수적으로 양보
-                    yielded = True
-                    break
-                if my_time is None or neighbor_time < my_time:
-                    # 이웃이 먼저 claim → 양보
+                neighbor_cost = msg.get('cost')
+                if neighbor_cost is None:
+                    continue
+                if my_cost is None or neighbor_cost < my_cost:
+                    # 이웃이 더 낮은 cost → 양보
                     yielded = True
                     break
 
             if not yielded:
                 result.append(task)
             else:
-                self.my_claim_time.pop(task_id, None)
+                self.my_cost.pop(task_id, None)
 
         return result
 
@@ -128,6 +127,13 @@ class FirstClaimGreedy: # Task selection within each agent's `situation_awarenes
         _max_utility = _current_utilities[_max_task_id]
 
         return _max_task_id, _max_utility
+
+    def compute_cost(self, task):
+        """Conflict resolution용 cost. 낮을수록 우선순위 높음."""
+        if MODE == "MaxUtil":
+            return -self.compute_utility(task)  # 높은 utility = 낮은 cost
+        else:  # MinDist, Random
+            return self.compute_distance(task)
 
     def compute_utility(self, task): # Individual Utility Function
         if task is None:
