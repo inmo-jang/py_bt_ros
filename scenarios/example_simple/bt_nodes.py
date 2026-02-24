@@ -143,11 +143,13 @@ class MoveToTarget(ActionWithROSAction):
 
     def _on_running(self, agent, blackboard):
         # 이동 중에도 목표 위치가 유효한지 체크: 만약 할당된 Task이 사라졌다면 목표 취소
+        self.status = Status.RUNNING  # 기본적으로 RUNNING 유지
         task_id = blackboard.get('assigned_task_id')
         if task_id != self.moving_task_id:        
             if self._goal_handle is not None:
                 self._goal_handle.cancel_goal_async()
-            self.status = Status.FAILURE  # 목표 취소 후 실패 반환
+                self.status = Status.FAILURE  # 목표 취소 후 실패 반환
+        return self.status
 
 # ── ExecuteTask ────────────────────────────────────────────────────────────────
 

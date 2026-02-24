@@ -116,8 +116,8 @@ class ActionWithROSAction(Node):
                 self._phase = 'idle'
                 self.status = Status.FAILURE
                 return self.status
-            self._on_running(agent, blackboard)
-            self.status = Status.RUNNING
+            self.status = self._on_running(agent, blackboard)
+             
             return self.status
 
         self.status = Status.RUNNING
