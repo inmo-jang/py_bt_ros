@@ -201,7 +201,7 @@ class WorldSupervisor(Node):
 
         self.fire_radius_growth_enabled = True   # 반경 성장 활성화 여부
         self.fire_radius_growth_interval = 10.0   # 반경 성장 적용 간격 (초)
-        self.fire_radius_growth_rate = 0.02      # 초당 반경 증가량 (m/s)
+        self.fire_radius_growth_rate = 0.0      # 초당 반경 증가량 (m/s) # TODO: 0 이상 설정하면 Comm topology가 불안정한 모습임. 이유확인 필요 2026.02.25 (Inmo Jang)
         self.fire_radius_max = 5.0               # 반경 최대값 (m)
 
         self._create_spawn_services()
