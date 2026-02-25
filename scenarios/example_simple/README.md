@@ -100,7 +100,7 @@ ReactiveSequence
 ### Prerequisites
 
 ```bash
-cd scenarios/example_simple/webots_sim_pkg
+cd scenarios/example_simple/sim_webots
 colcon build --symlink-install
 source install/local_setup.bash
 ```
@@ -178,7 +178,7 @@ ros2 service call /world/fire/spawn std_srvs/srv/Empty
 ### (Optional) RViz Visualisation
 
 ```
-rviz2 -d scenarios/example_simple/webots_sim_pkg/webots_ros2_husky/default_view.rviz
+rviz2 -d scenarios/example_simple/sim_webots/webots_ros2_husky/default_view.rviz
 ```
 
 Launch Webots with `debug:=true` (Step 1), then open RViz and add the following displays:
@@ -204,7 +204,7 @@ example_simple/
 │   └── nav_action_server.py   # NavigateToPose action server (gap-based avoidance)
 ├── configs/
 │   └── config.yaml             # Shared config (namespace set via --ns at runtime)
-└── webots_sim_pkg/
+└── sim_webots/
     └── webots_ros2_husky/
         ├── launch/
         │   └── robot_launch.py               # Webots launch + robot driver setup
