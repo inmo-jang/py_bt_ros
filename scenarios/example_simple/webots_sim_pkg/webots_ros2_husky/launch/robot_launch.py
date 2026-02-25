@@ -4,8 +4,7 @@ import yaml
 import tempfile
 import launch
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable, RegisterEventHandler, TimerAction
-from launch.event_handlers import OnProcessStart, OnProcessExit
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
 from webots_ros2_driver.webots_launcher import WebotsLauncher
@@ -82,16 +81,6 @@ def generate_launch_description():
     robot_names = discover_robots_from_world(world_path)
     print(f"[robot_launch] Discovered robots: {robot_names}")
 
-    # Create the robot state publisher
-    robot_state_publisher = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        output='screen',
-        parameters=[{
-            'robot_description': '<robot name=""><link name=""/></robot>'
-        }],
-    )
-
     # ROS control spawners
     ros2_control_params = os.path.join(package_dir, 'resource', 'ros2control.yaml')
     controller_manager_timeout = ['--controller-manager-timeout', '50']
@@ -100,12 +89,26 @@ def generate_launch_description():
 
     # ----------------------------------------
     # 로봇별 동적 생성: robot_driver + controller spawners + WaitForControllerConnection
-    # 공식 예시처럼 각 로봇마다 독립적인 namespace와 controller_manager를 사용
+    # Jazzy에서는 각 controller_manager가 namespace별 robot_description 토픽을
+    # 구독하므로, 로봇마다 namespaced robot_state_publisher를 별도로 생성한다.
     # ----------------------------------------
     robot_drivers = []
     ros_control_items = []  # robot_driver → waiting_node 순서 보장을 위한 리스트
+    robot_state_publishers = []
 
     for robot_name in robot_names:
+        robot_state_publishers.append(
+            Node(
+                package='robot_state_publisher',
+                executable='robot_state_publisher',
+                namespace=robot_name,
+                output='screen',
+                parameters=[{
+                    'robot_description': '<robot name=""><link name=""/></robot>'
+                }],
+            )
+        )
+
         # namespace를 부여하므로 remapping 소스는 상대 경로(namespace 기준)로 지정
         #
         # webots_ros2_driver는 robot_name이 설정될 때 센서 토픽을
@@ -166,7 +169,7 @@ def generate_launch_description():
         set_debug_env,
         *set_webots_paths,   # ✅ webots 앞에 들어가야 함
         webots,
-        robot_state_publisher,
+        *robot_state_publishers,
         *ros_control_items,
     ]
 
