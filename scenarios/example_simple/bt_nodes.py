@@ -4,8 +4,8 @@ import random
 
 import pygame
 
-from modules.base_bt_nodes import BTNodeList, Status, Node, Sequence, Fallback, ReactiveSequence, ReactiveFallback, SyncAction, AssignTask, SyncCondition
-from modules.base_bt_nodes_ros import ActionWithROSAction, ConditionWithROSTopics
+from modules.base_bt_nodes import BTNodeList, Status, Sequence, Fallback, ReactiveSequence, ReactiveFallback, AssignTask, SyncCondition
+from modules.base_bt_nodes_ros import ActionWithROSAction, ActionWithROSTopic, ConditionWithROSTopics
 from modules.utils import config, AttrDict
 
 from geometry_msgs.msg import PoseStamped
@@ -36,6 +36,7 @@ BTNodeList.CONDITION_NODES.extend(CUSTOM_CONDITION_NODES)
 _map_bounds = config.get('tasks', {}).get('locations', {})
 
 
+# ── Nodes  ─────────────────────────────────────────────────────────────────────
 
 class GatherLocalInfo(ConditionWithROSTopics):
     def __init__(self, name, agent):
@@ -87,29 +88,47 @@ class GatherLocalInfo(ConditionWithROSTopics):
             self.agent.messages_received = {}
 
         return True
-    
 
-
-# ── IsTaskCompleted ────────────────────────────────────────────────────────────
 
 class IsTaskCompleted(SyncCondition):
     def __init__(self, name, agent):
         super().__init__(name, self._update)
 
-    def _update(self, agent, blackboard):        
+    def _update(self, agent, blackboard):
         assigned_task_id = blackboard.get('assigned_task_id', None)
         if assigned_task_id is None:
-            return Status.FAILURE 
-        
+            return Status.FAILURE
+
         local_tasks_info = blackboard.get('local_tasks_info', {})
         if assigned_task_id in local_tasks_info:
             return Status.FAILURE  # 아직 불이 남아있음
 
-        return Status.SUCCESS  # 불이 사라짐 = 완료    
-    
+        return Status.SUCCESS  # 불이 사라짐 = 완료
 
 
-# ── MoveToTarget ───────────────────────────────────────────────────────────────
+class IsArrivedAtTarget(ConditionWithROSTopics):
+    def __init__(self, name, agent, default_thresh=1.2):
+        ns = agent.ros_namespace or ""
+        super().__init__(name, agent, [(PoseStamped, f"{ns}/pose_world", "ego_pose")])
+        self.default_thresh = default_thresh
+        self._target_xy = {}
+        self._subs = {}
+
+    def _predicate(self, agent, blackboard):
+        cache = self._cache  # 베이스 설계대로 내부 캐시 사용
+        if "ego_pose" not in cache:
+            return False
+
+        ego_pose = cache["ego_pose"]
+        target_id = blackboard.get("assigned_task_id", None)
+
+        target_info = blackboard.get("local_tasks_info", {}).get(target_id)
+        if target_info is None:
+            return False
+
+        dist = math.hypot(ego_pose.pose.position.x - target_info['x'], ego_pose.pose.position.y - target_info['y'])
+        return dist <= self.default_thresh + target_info['radius']
+
 
 class MoveToTarget(ActionWithROSAction):
     """
@@ -151,33 +170,21 @@ class MoveToTarget(ActionWithROSAction):
                 self.status = Status.FAILURE  # 목표 취소 후 실패 반환
         return self.status
 
-# ── ExecuteTask ────────────────────────────────────────────────────────────────
 
-class ExecuteTask(Node):
-    """Fire를 suppress하기 위해 /world/fire/suppress 토픽에 fire_id를 publish"""
-    
+class ExecuteTask(ActionWithROSTopic):
+    """Fire를 suppress하기 위해 /world/fire/reduce 토픽에 fire_id를 publish"""
+
     def __init__(self, name, agent):
-        super().__init__(name)
-        self.type = "Action"
-        self.status = Status.RUNNING
-        self._pub = agent.ros_bridge.node.create_publisher(
-            # String, '/world/fire/suppress', 1
-            String, '/world/fire/reduce', 1            
-        )
-    
-    async def run(self, agent, blackboard):
+        super().__init__(name, agent, (String, '/world/fire/reduce'))
+
+    def _build_message(self, agent, blackboard):
         fire_id = blackboard.get("assigned_task_id", None)
         if fire_id is None:
-            self.status = Status.FAILURE
-            return self.status
-        
-        # fire_id를 suppress 토픽으로 publish
+            return None
+
         msg = String()
         msg.data = str(fire_id)
-        self._pub.publish(msg)
-        
-        self.status = Status.SUCCESS
-        return self.status
+        return msg
 
 
 class Explore(ActionWithROSAction):
@@ -235,27 +242,3 @@ class Explore(ActionWithROSAction):
             self.time_started = self.ros.node.get_clock().now().nanoseconds / 1e9  # 시간 초기화  
 
 
-
-class IsArrivedAtTarget(ConditionWithROSTopics):
-    def __init__(self, name, agent, default_thresh=1.2):
-        ns = agent.ros_namespace or ""
-        super().__init__(name, agent, [(PoseStamped, f"{ns}/pose_world", "ego_pose")])
-        self.default_thresh = default_thresh
-        self._target_xy = {}
-        self._subs = {}
-
-    def _predicate(self, agent, blackboard):
-        cache = self._cache  # 베이스 설계대로 내부 캐시 사용
-        if "ego_pose" not in cache:
-            return False
-        
-        ego_pose = cache["ego_pose"]
-        target_id = blackboard.get("assigned_task_id", None)
-
-        target_info = blackboard.get("local_tasks_info", {}).get(target_id)
-        if target_info is None:
-            return False
-
-
-        dist = math.hypot(ego_pose.pose.position.x - target_info['x'], ego_pose.pose.position.y - target_info['y'])
-        return dist <= self.default_thresh + target_info['radius']
