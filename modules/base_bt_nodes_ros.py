@@ -201,3 +201,43 @@ class ActionWithROSService(Node):
     def halt(self):
         # 서비스는 취소 개념이 없으므로 플래그만 초기화
         self._sent = False
+
+
+class ActionWithROSTopic(Node):
+    """
+    심플 ROS Topic 퍼블리셔 베이스.
+      - topic_spec: (MsgType, topic_name)
+      - _build_message(): 퍼블리시할 메시지 생성 (None 반환 시 FAILURE)
+      - _interpret_publish(): 퍼블리시 결과를 SUCCESS/FAILURE로 매핑
+    """
+    def __init__(self, name, agent, topic_spec):
+        super().__init__(name)
+        self.ros = agent.ros_bridge
+        msg_type, topic_name = topic_spec
+        self._pub = self.ros.node.create_publisher(msg_type, topic_name, 10)
+
+        # For PA-BT
+        self.type = "Action"
+
+    def _build_message(self, agent, blackboard):
+        # 하위 클래스에서 구현
+        # 퍼블리시할 메시지를 반환; None이면 FAILURE
+        raise NotImplementedError
+
+    def _interpret_publish(self, msg, agent, blackboard):
+        # 기본 매핑: 퍼블리시 성공 자체를 SUCCESS로 간주
+        # 필요 시 하위 클래스에서 오버라이드
+        return Status.SUCCESS
+
+    async def run(self, agent, blackboard):
+        msg = self._build_message(agent, blackboard)
+        if msg is None:
+            self.status = Status.FAILURE
+            return self.status
+
+        self._pub.publish(msg)
+        self.status = self._interpret_publish(msg, agent, blackboard)
+        return self.status
+
+    def halt(self):
+        pass  # 토픽 퍼블리시는 취소 개념이 없음
