@@ -136,7 +136,7 @@ class ActionWithROSAction(Node):
         self._result_future = self._goal_handle.get_result_async()
         self._phase = 'running'
 
-    # Action Request 취소 (선택적 구현)
+    # Action Request 취소: BT에서 이것이 반복되면서 nav_action_server에 cancel_goal_async()가 여러 번 호출되면서 불안정해짐. 
     # def halt(self):
     #     if self._goal_handle is not None:
     #         self._goal_handle.cancel_goal_async()
