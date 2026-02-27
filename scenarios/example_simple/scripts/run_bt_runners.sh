@@ -1,17 +1,20 @@
 #!/bin/bash
 # Run main.py (BT runner) for N robots in parallel.
-# Usage: ./run_bt_runners.sh [NUM_ROBOTS]
-#   NUM_ROBOTS: number of robots to launch (default: 10)
+# Usage: ./run_bt_runners.sh [NUM_ROBOTS] [CONFIG_NAME]
+#   NUM_ROBOTS:   number of robots to launch (default: 10)
+#   CONFIG_NAME:  config filename under scenarios/example_simple/configs/ (default: grape.yaml)
 #
 # Run from the project root:
 #   bash scenarios/example_simple/scripts/run_bt_runners.sh
 #   bash scenarios/example_simple/scripts/run_bt_runners.sh 3
+#   bash scenarios/example_simple/scripts/run_bt_runners.sh 3 greedy.yaml
 
 NUM_ROBOTS=${1:-10}
+CONFIG_NAME=${2:-grape.yaml}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-CONFIG="$ROOT_DIR/scenarios/example_simple/configs/grape.yaml"
+CONFIG="$ROOT_DIR/scenarios/example_simple/configs/$CONFIG_NAME"
 
 PIDS=()
 
