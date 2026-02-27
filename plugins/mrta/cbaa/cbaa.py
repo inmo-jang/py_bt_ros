@@ -20,12 +20,14 @@ class CBAA:
             - `task_id`, if task allocation works well
             - `None`, otherwise
         '''        
+        previous_assigned_task_id = self.assigned_task.task_id if self.assigned_task is not None else None  # For Debug        
+
         # Get local information from the blackboard
         local_tasks_info = blackboard['local_tasks_info']
-        local_agents_info = blackboard['local_agents_info']
-
-        # Post-process if the previously assigned task is done        
-        if self.assigned_task is not None and self.assigned_task.completed:            
+        
+        # Check if the existing task is done or not available anymore (e.g., completed by others, disappeared due to dynamic environment, etc.)            
+        self.assigned_task = local_tasks_info.get(previous_assigned_task_id)
+        if self.assigned_task is None and previous_assigned_task_id is not None:            
             # Implement your idea
             self.assigned_task = None
             self.satisfied = False
@@ -44,7 +46,8 @@ class CBAA:
             # Line 5
             selectable_tasks = {}
             task_rewards = {}
-            for task in local_tasks_info:
+            candidates = list(local_tasks_info.values())
+            for task in candidates:
                 task_reward = self.calculate_score(task)
                 if task.task_id not in self.y or task_reward > self.y[task.task_id]:
                     selectable_tasks[task.task_id] = task
@@ -64,6 +67,7 @@ class CBAA:
                 self.agent.message_to_share = {
                     # Implement your idea (data to share)
                     'agent_id': self.agent.agent_id,
+                    'assigned_task_id': self.assigned_task.task_id if self.assigned_task is not None else None,                
                     'winning_bids': self.y
                 }
                 self.satisfied = True
@@ -97,16 +101,18 @@ class CBAA:
                 self.assigned_task = None
 
             # Reset Message
-            self.agent.reset_messages_received()
+            # self.agent.reset_messages_received()
 
             return self.assigned_task.task_id if self.assigned_task is not None else None
 
 
     def calculate_score(self, task):
-        distance_to_task = self.agent.position.distance_to(task.position)
+        distance_to_task = (self.agent.position - task.position).length() - task.radius
         # Time-discounted reward
         LAMBDA = 0.999
-        expected_reward = LAMBDA**(distance_to_task/self.agent.max_speed + task.amount/self.agent.work_rate)*task.amount          
+        AGENT_SPEED = 0.5
+        AGENT_WORK_RATE = 0.2
+        expected_reward = LAMBDA**(distance_to_task/AGENT_SPEED)          
         return expected_reward
     
     def update_dict_based_on_comparison(my_dict, other_dict):

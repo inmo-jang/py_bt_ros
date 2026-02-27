@@ -23,7 +23,22 @@ def parse_behavior_tree(xml_path):
     tree = ET.parse(xml_path)
     root = tree.getroot()
     return root
+
+
+def merge_dicts(dict1, dict2):
+    # 두 개의 딕셔너리를 복사하여 합칠 딕셔너리를 초기화합니다.
+    merged_dict = dict1.copy()
     
+    # dict2의 항목을 순회합니다.
+    for key, value in dict2.items():
+        # 이미 merged_dict에 같은 키가 있으면 값을 비교하여 최대 값을 설정합니다.
+        if key in merged_dict:
+            merged_dict[key] = max(merged_dict[key], value)
+        else:
+            # 새로운 키일 경우 추가합니다.
+            merged_dict[key] = value
+            
+    return merged_dict    
 
 def convert_value(v): # "None" → None; 문자열 숫자는 숫자로 변환
     if v == "None":
