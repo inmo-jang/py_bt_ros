@@ -12,9 +12,15 @@ The goal is to demonstrate that the BT (Behaviour Tree)-based multi-robot archit
 - Robots: **Fire_UGV_N** (6 Husky-based UGVs)
 - Objective: Each robot autonomously detects, approaches, and suppresses fires
 
-Each robot is driven by an independent BT. It selects the nearest fire, approaches it, and repeatedly reduces its radius until the fire is extinguished. Fires spread to surrounding areas over time.
+Each robot is driven by an independent BT. It selects a fire to suppress based on a pluggable MRTA algorithm, approaches it, and repeatedly reduces its radius until the fire is extinguished. Fires spread to surrounding areas over time.
 
-> ⚠️ **Current Limitation**: The `AssignTask` node uses a simple greedy strategy (select the nearest fire). Cooperative task allocation among multiple robots is not yet implemented and needs further refinement.
+The following **Multi-Robot Task Allocation (MRTA) plugins** are available:
+
+| Plugin | Config | Description |
+|--------|--------|-------------|
+| **Greedy** | `greedy.yaml` | Each robot independently picks the nearest available fire |
+| **GRAPE** | `grape.yaml` | Distributed coalition formation via game-theoretic partition |
+| **CBBA** | `cbba.yaml` | Consensus-based bundle algorithm for multi-task assignment |
 
 ---
 
@@ -137,22 +143,35 @@ python3 scenarios/example_simple/action_servers/nav_action_server.py --ns /Fire_
 
 ### Step 3: Run BT Runners (one terminal per robot)
 
-Use `--ns` to specify each robot's namespace. All robots share the same `config.yaml`.
+Use `--ns` to specify each robot's namespace and `--config` to select the MRTA algorithm.
 
 ```bash
-python3 main.py --config=scenarios/example_simple/configs/config.yaml --ns /Fire_UGV_1
-python3 main.py --config=scenarios/example_simple/configs/config.yaml --ns /Fire_UGV_2
-python3 main.py --config=scenarios/example_simple/configs/config.yaml --ns /Fire_UGV_3
+# Greedy
+python3 main.py --config=scenarios/example_simple/configs/greedy.yaml --ns /Fire_UGV_1
+
+# GRAPE
+python3 main.py --config=scenarios/example_simple/configs/grape.yaml --ns /Fire_UGV_1
+
+# CBBA
+python3 main.py --config=scenarios/example_simple/configs/cbba.yaml --ns /Fire_UGV_1
 ```
 
 > **(Optional) Launch all robots at once with a shell script**
 >
 > ```bash
-> # Default: 10 robots (Fire_UGV_1 ~ Fire_UGV_10)
+> # Usage: bash run_bt_runners.sh [NUM_ROBOTS] [CONFIG_NAME]
+>
+> # Default: 10 robots, grape.yaml
 > bash scenarios/example_simple/scripts/run_bt_runners.sh
 >
-> # Or specify the number of robots
-> bash scenarios/example_simple/scripts/run_bt_runners.sh 3
+> # 6 robots with GRAPE
+> bash scenarios/example_simple/scripts/run_bt_runners.sh 6 grape.yaml
+>
+> # 6 robots with CBBA
+> bash scenarios/example_simple/scripts/run_bt_runners.sh 6 cbba.yaml
+>
+> # 6 robots with Greedy
+> bash scenarios/example_simple/scripts/run_bt_runners.sh 6 greedy.yaml
 > ```
 >
 > Press **Ctrl+C** to stop all BT runners at once.
@@ -187,8 +206,10 @@ Launch Webots with `debug:=true` (Step 1), then open RViz and add the following 
 |---------|-------|-------|
 | **PoseStamped** | `/Fire_UGV_N/pose_world` | Set **Fixed Frame** to `world` |
 | **MarkerArray** | `/world/visualisation/comm_topology` | Green lines between robots within comm_radius |
+| **MarkerArray** | `/world/visualisation/task_assignment` | Cyan lines: robot → currently assigned fire |
+| **MarkerArray** | `/world/visualisation/task_plan` | Orange lines: robot → planned task sequence (CBBA only) |
 
-Communication topology lines have a 1 s lifetime and auto-expire when robots go silent.
+All visualisation markers have a 1 s lifetime and auto-expire when robots go silent.
 
 
 ---
@@ -203,7 +224,9 @@ example_simple/
 ├── action_servers/
 │   └── nav_action_server.py   # NavigateToPose action server (gap-based avoidance)
 ├── configs/
-│   └── config.yaml             # Shared config (namespace set via --ns at runtime)
+│   ├── greedy.yaml             # Greedy MRTA config
+│   ├── grape.yaml              # GRAPE MRTA config
+│   └── cbba.yaml               # CBBA MRTA config
 └── sim_webots/
     └── webots_ros2_husky/
         ├── launch/
@@ -249,5 +272,4 @@ example_simple/
 
 ## Known Issues / TODO
 
-- **`AssignTask`**: Currently uses a simple greedy strategy (nearest fire). Multiple robots may be assigned to the same fire simultaneously. Cooperative task allocation logic needs to be implemented.
 - **`Explore`**: Falls back to ±10m default map bounds if `x_min/max`, `y_min/max` are not defined in the config.
