@@ -136,10 +136,11 @@ class ActionWithROSAction(Node):
         self._result_future = self._goal_handle.get_result_async()
         self._phase = 'running'
 
-    def halt(self):
-        if self._goal_handle is not None:
-            self._goal_handle.cancel_goal_async()
-        self._phase = 'idle'
+    # Action Request 취소 (선택적 구현)
+    # def halt(self):
+    #     if self._goal_handle is not None:
+    #         self._goal_handle.cancel_goal_async()
+    #     self._phase = 'idle'
 
 
 class ActionWithROSService(Node):
