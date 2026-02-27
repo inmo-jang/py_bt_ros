@@ -61,7 +61,7 @@ class GatherLocalInfo(ConditionWithROSTopics):
         outbox = getattr(agent, 'message_to_share', {})  # GatherLocalInfo 실행 시점에 agent의 임시 속성에서 메시지 가져오기
         if outbox is not None:
             msg = String()
-            msg.data = json.dumps(outbox)
+            msg.data = json.dumps(outbox, default=lambda x: list(x) if isinstance(x, set) else x)
             self._pub_outbox.publish(msg)
 
         # [2] 필수 topic 수신 확인: 하나라도 없으면 False

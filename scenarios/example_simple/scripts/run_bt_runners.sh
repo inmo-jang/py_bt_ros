@@ -11,7 +11,7 @@ NUM_ROBOTS=${1:-10}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-CONFIG="$ROOT_DIR/scenarios/example_simple/configs/config.yaml"
+CONFIG="$ROOT_DIR/scenarios/example_simple/configs/grape.yaml"
 
 PIDS=()
 
