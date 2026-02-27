@@ -56,7 +56,7 @@ class GRAPE:
         self.assigned_task = self.get_assigned_task_from_partition(self.partition, local_tasks_info)
         
         # Check if the existing task is done or not available anymore (e.g., completed by others, disappeared due to dynamic environment, etc.)        
-        if self.assigned_task is None and previous_assigned_task_id is not None:           
+        if self.assigned_task is None and previous_assigned_task_id is not None and previous_assigned_task_id not in local_tasks_info:
             # _neighbor_agents_info = self.get_neighbor_agents_info_in_partition(self.partition)    
             # Default routine
             self.partition[previous_assigned_task_id] = set()  # Empty the previous task's coalition                  

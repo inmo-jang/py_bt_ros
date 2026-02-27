@@ -35,14 +35,17 @@ class FirstClaimGreedy: # Task selection within each agent's `situation_awarenes
             }
             return None
 
+        # Build neighbor_cost_map once, reuse in both conflict check and filtering
+        neighbor_cost_map = self._build_neighbor_cost_map()
+        
         # Conflict resolution: 현재 assigned task를 이웃이 더 낮은 cost로 claim했으면 양보
         if self.assigned_task is not None:
-            if self._has_priority_conflict(assigned_task_id):
+            if self._has_priority_conflict_fast(assigned_task_id, neighbor_cost_map):
                 self.assigned_task = None
                 self.my_cost.pop(assigned_task_id, None)
 
         # 매 tick마다 재평가: conflict resolution 후 최적 task 선택
-        candidates = self.filter_tasks_with_conflict_resolution(list(local_tasks_info.values()))
+        candidates = self.filter_tasks_with_conflict_resolution(list(local_tasks_info.values()), neighbor_cost_map)
         if len(candidates) == 0:
             self.agent.message_to_share = {
                 'agent_id': self.agent.agent_id,
@@ -72,6 +75,33 @@ class FirstClaimGreedy: # Task selection within each agent's `situation_awarenes
 
         return self.assigned_task.task_id
 
+    def _build_neighbor_cost_map(self) -> dict:
+        neighbor_cost_map = {}
+        for msg in self.agent.messages_received:
+            # 딕셔너리가 'assigned_task_id'와 'cost'를 항상 가지고 있다면 직접 접근([])이 최선
+            try:
+                t_id = msg['assigned_task_id']
+                c = msg['cost']
+                if t_id is None or c is None: continue
+                
+                # 기존 값보다 작을 때만 갱신 (if-in 보다 get 기본값 활용이 깔끔함)
+                if c < neighbor_cost_map.get(t_id, 1e18): 
+                    neighbor_cost_map[t_id] = c
+            except KeyError:
+                continue
+        return neighbor_cost_map
+
+    def _has_priority_conflict_fast(self, task_id: int, neighbor_cost_map: dict) -> bool:
+        """이웃이 나보다 낮은 cost로 task_id를 claim했으면 True 반환."""
+        my_cost = self.my_cost.get(task_id)
+        neighbor_cost = neighbor_cost_map.get(task_id)
+        
+        if neighbor_cost is None:
+            return False
+        if my_cost is None or neighbor_cost < my_cost:
+            return True
+        return False
+
     def _has_priority_conflict(self, task_id) -> bool:
         """이웃이 나보다 낮은 cost로 task_id를 claim했으면 True 반환."""
         my_cost = self.my_cost.get(task_id)
@@ -85,42 +115,33 @@ class FirstClaimGreedy: # Task selection within each agent's `situation_awarenes
                 return True  # 이웃이 더 낮은 cost를 가짐
         return False
 
-    def filter_tasks_with_conflict_resolution(self, tasks_info):
+    def filter_tasks_with_conflict_resolution(self, tasks_info, neighbor_cost_map: dict):
         """내가 우선권을 가지는 task만 반환 (이웃이 더 낮은 cost면 제외)."""
         result = []
         for task in tasks_info:
             task_id = task.task_id
             my_cost = self.my_cost.get(task_id)
-
-            yielded = False
-            for msg in self.agent.messages_received:
-                if msg.get('assigned_task_id') != task_id:
-                    continue
-                neighbor_cost = msg.get('cost')
-                if neighbor_cost is None:
-                    continue
-                if my_cost is None or neighbor_cost < my_cost:
-                    # 이웃이 더 낮은 cost → 양보
-                    yielded = True
-                    break
-
-            if not yielded:
+            neighbor_cost = neighbor_cost_map.get(task_id)
+            
+            # 이웃이 없거나, 내 cost가 더 좋음 → 포함
+            if neighbor_cost is None or (my_cost is not None and neighbor_cost >= my_cost):
                 result.append(task)
             else:
+                # 이웃이 더 낮은 cost → 제외
                 self.my_cost.pop(task_id, None)
-
+        
         return result
 
     def find_min_dist_task(self, tasks_info):
         _tasks_distance = {
-            task.get('task_id'): self.compute_distance(task) for task in tasks_info
+            task.task_id: self.compute_distance(task) for task in tasks_info
         }
         _min_task_id = min(_tasks_distance, key=_tasks_distance.get)
         return _min_task_id
 
     def find_max_utility_task(self, tasks_info):
         _current_utilities = {
-            task.get('task_id'): self.compute_utility(task) for task in tasks_info
+            task.task_id: self.compute_utility(task) for task in tasks_info
         }
 
         _max_task_id = max(_current_utilities, key=_current_utilities.get)

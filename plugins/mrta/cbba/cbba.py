@@ -41,7 +41,7 @@ class CBBA:
         self.assigned_task = None
         self.no_bundle_duration = 0
         
-        self.planned_tasks = [] # For visualisation
+        # self.planned_tasks = [] # For visualisation
 
     def decide(self, blackboard):
         # Place your decision-making code for each agent
@@ -96,7 +96,7 @@ class CBBA:
                 } 
             
             self.phase = Phase.ASSIGNMENT_CONSENSUS
-            self.planned_tasks = self.path # For visualisation
+            # self.agent.set_planned_tasks(self.path) # For visualisation (SPACE only)
             self.assigned_task = None   # 아직 consensus 안된거니까 None 이라고 해줘야함
             return None
         
@@ -104,111 +104,130 @@ class CBBA:
             self.update_time_stamp()
             # Phase 2 Consensus
             candidates = list(local_tasks_info.values()) if isinstance(local_tasks_info, dict) else local_tasks_info            
-            for task in candidates: 
-                for other_agent_message in self.agent.messages_received:
-                    k_agent_id = other_agent_message.get('agent_id')
-                    if k_agent_id == self.agent.agent_id:
-                        continue
-                    z_k = other_agent_message.get('winning_agents')
-                    y_k = other_agent_message.get('winning_bids')
-                    s_k = other_agent_message.get('message_received_time_stamp')
-
-                    z_i = self.z
-                    y_i = self.y
-                    s_i = self.s
-
-                    j = task.task_id
-                    if y_k.get(j) is None or y_i.get(j) is None:
+            
+            # Parse all neighbor messages once before the consensus loop (message caching)
+            parsed_messages = []
+            for other_agent_message in self.agent.messages_received:
+                k_agent_id = other_agent_message.get('agent_id')
+                if k_agent_id == self.agent.agent_id:
+                    continue
+                parsed_messages.append({
+                    'agent_id': k_agent_id,
+                    'z_k': other_agent_message.get('winning_agents') or {},
+                    'y_k': other_agent_message.get('winning_bids') or {},
+                    's_k': other_agent_message.get('message_received_time_stamp') or {}
+                })
+            
+            # Now process each task with pre-parsed messages
+            for task in candidates:
+                z_i = self.z
+                y_i = self.y
+                s_i = self.s
+                j = task.task_id
+                
+                for parsed_msg in parsed_messages:
+                    z_k = parsed_msg['z_k']
+                    y_k = parsed_msg['y_k']
+                    s_k = parsed_msg['s_k']
+                    k_agent_id = parsed_msg['agent_id']
+                    
+                    # Skip if task is not in both bid lists
+                    if j not in y_k or j not in y_i:
                         continue
 
                     try:    
-                        if z_k[j] == k_agent_id:
+                        if z_k.get(j) == k_agent_id:
                             # Rule 1
-                            if z_i[j] == self.agent.agent_id:
+                            if z_i.get(j) == self.agent.agent_id:
                                 if y_k[j] > y_i[j]:
                                     self._update(j, y_k, z_k)
                             # Rule 2
-                            elif z_i[j] == k_agent_id:
+                            elif z_i.get(j) == k_agent_id:
                                 self._update(j, y_k, z_k)
                             # Rule 4
-                            elif z_i[j] == None:
+                            elif z_i.get(j) == None:
                                 self._update(j, y_k, z_k)     
                             # Rule 3
                             else:
-                                m = z_i[j]                                                                                    
-                                try: 
-                                    if s_k.get(m) > s_i.get(m) or y_k[j] > y_i[j]:
-                                        self._update(j, y_k, z_k)   
-                                except Exception as e:
-                                    pass                                
+                                m = z_i.get(j)
+                                if m is not None:
+                                    try: 
+                                        if s_k.get(m, 0) > s_i.get(m, 0) or y_k[j] > y_i[j]:
+                                            self._update(j, y_k, z_k)   
+                                    except Exception as e:
+                                        pass                                
 
-                        elif z_k[j] == self.agent.agent_id:
+                        elif z_k.get(j) == self.agent.agent_id:
                             # Rule 5
-                            if z_i[j] == self.agent.agent_id:
+                            if z_i.get(j) == self.agent.agent_id:
                                 self._leave()                            
                             # Rule 6
-                            elif z_i[j] == k_agent_id:
+                            elif z_i.get(j) == k_agent_id:
                                 self._reset(j)
                             # Rule 8
-                            elif z_i[j] == None:
+                            elif z_i.get(j) == None:
                                 self._leave()                            
                             # Rule 7
                             else:
-                                m = z_i[j]    
-                                try:                        
-                                    if s_k.get(m) > s_i.get(m):
-                                        self._reset(j)
-                                except Exception as e:
-                                    pass
+                                m = z_i.get(j)
+                                if m is not None:
+                                    try:                        
+                                        if s_k.get(m, 0) > s_i.get(m, 0):
+                                            self._reset(j)
+                                    except Exception as e:
+                                        pass
 
-                        elif z_k[j] == None:
+                        elif z_k.get(j) == None:
                             # Rule 14
-                            if z_i[j] == self.agent.agent_id:
+                            if z_i.get(j) == self.agent.agent_id:
                                 self._leave()                            
                             # Rule 15
-                            elif z_i[j] == k_agent_id:
+                            elif z_i.get(j) == k_agent_id:
                                 self._update(j, y_k, z_k)  
                             # Rule 17
-                            elif z_i[j] == None:
+                            elif z_i.get(j) == None:
                                 self._leave()                            
                             # Rule 16
                             else:
-                                m = z_i[j]                            
-                                if s_k.get(m) > s_i.get(m):
-                                    self._reset(j)
+                                m = z_i.get(j)
+                                if m is not None:
+                                    if s_k.get(m, 0) > s_i.get(m, 0):
+                                        self._reset(j)
                         
                         else:
-                            m = z_k[j]                        
-                            # Rule 9
-                            if z_i[j] == self.agent.agent_id:
-                                if s_k.get(m) > s_i.get(m) and y_k[j] > y_i[j]:
-                                    self._update(j, y_k, z_k)                                                         
-                            # Rule 10
-                            elif z_i[j] == k_agent_id:
-                                if s_k.get(m) > s_i.get(m):
-                                    self._update(j, y_k, z_k)        
-                                else:
-                                    self._reset(j)
-                            # Rule 11
-                            elif z_i[j] == m:                            
-                                if s_k.get(m) > s_i.get(m):
-                                    self._update(j, y_k, z_k)                                    
-                            # Rule 13
-                            elif z_i[j] == None:
-                                if s_k.get(m) > s_i.get(m):
-                                    self._update(j, y_k, z_k)                                    
-                            # Rule 12
-                            else:
-                                n = z_i[j]                        
-                                try:
-                                    if s_k.get(m) > s_i.get(m) and s_k.get(n) > s_i.get(n):
-                                        self._update(j, y_k, z_k)
-                                    elif s_k.get(m) > s_i.get(m) and y_k[j] > y_i[j]:
-                                        self._update(j, y_k, z_k)                        
-                                    elif s_k.get(n) > s_i.get(n) and s_i.get(m) > s_k.get(m):
+                            m = z_k.get(j)
+                            if m is not None:
+                                # Rule 9
+                                if z_i.get(j) == self.agent.agent_id:
+                                    if s_k.get(m, 0) > s_i.get(m, 0) and y_k[j] > y_i[j]:
+                                        self._update(j, y_k, z_k)                                                         
+                                # Rule 10
+                                elif z_i.get(j) == k_agent_id:
+                                    if s_k.get(m, 0) > s_i.get(m, 0):
+                                        self._update(j, y_k, z_k)        
+                                    else:
                                         self._reset(j)
-                                except Exception as e:
-                                    pass
+                                # Rule 11
+                                elif z_i.get(j) == m:                            
+                                    if s_k.get(m, 0) > s_i.get(m, 0):
+                                        self._update(j, y_k, z_k)                                    
+                                # Rule 13
+                                elif z_i.get(j) == None:
+                                    if s_k.get(m, 0) > s_i.get(m, 0):
+                                        self._update(j, y_k, z_k)                                    
+                                # Rule 12
+                                else:
+                                    n = z_i.get(j)
+                                    if n is not None:
+                                        try:
+                                            if s_k.get(m, 0) > s_i.get(m, 0) and s_k.get(n, 0) > s_i.get(n, 0):
+                                                self._update(j, y_k, z_k)
+                                            elif s_k.get(m, 0) > s_i.get(m, 0) and y_k[j] > y_i[j]:
+                                                self._update(j, y_k, z_k)                        
+                                            elif s_k.get(n, 0) > s_i.get(n, 0) and s_i.get(m, 0) > s_k.get(m, 0):
+                                                self._reset(j)
+                                        except Exception as e:
+                                            pass
                     except Exception as e:
                         pass
 
@@ -233,7 +252,7 @@ class CBBA:
             else:
                 self.bundle = updated_bundle
                 self.path = updated_path
-                self.planned_tasks = self.path # For visualisation
+                # self.agent.set_planned_tasks(self.path) # For visualisation (SPACE only)
                 self.assigned_task = None # NOTE: 불만족 상황이 되었으니 assigned_task 초기화
                 self.phase = Phase.BUILD_BUNDLE
         
@@ -313,7 +332,7 @@ class CBBA:
         # For neighbor agents
         current_timestamp = int(time.time())
         for other_agent in self.agent.messages_received:            
-            self.s[other_agent.agent_id] = current_timestamp
+            self.s[other_agent.get('agent_id')] = current_timestamp
 
         
         # For two-hop neighbor agents
@@ -406,4 +425,3 @@ class CBBA:
 
         return expected_reward_from_task
 
-        
