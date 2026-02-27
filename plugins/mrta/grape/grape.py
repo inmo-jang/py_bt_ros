@@ -114,7 +114,7 @@ class GRAPE:
 
     def find_max_utility_task(self, tasks_info):
         _current_utilities = {
-            task.get('task_id'): self.compute_utility(task) for task in tasks_info
+            task.task_id : self.compute_utility(task) for task in tasks_info
         }
 
         _max_task_id = max(_current_utilities, key=_current_utilities.get)
