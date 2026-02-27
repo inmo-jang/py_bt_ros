@@ -148,10 +148,13 @@ class RobotSupervisor:
             self._pub_task_assignment = self.node.create_publisher(
                 MarkerArray, '/world/visualisation/task_assignment', 10
             )
+            self._pub_task_plan = self.node.create_publisher(
+                MarkerArray, '/world/visualisation/task_plan', 10
+            )
             self._pub_robot_markers = self.node.create_publisher(
                 MarkerArray, '/world/visualisation/robots', 10
             )
-            self.log.info("Debug mode ON: publishing /world/visualisation/comm_topology, /world/visualisation/task_assignment, /world/visualisation/robots")
+            self.log.info("Debug mode ON: publishing /world/visualisation/comm_topology, /world/visualisation/task_assignment, /world/visualisation/task_plan, /world/visualisation/robots")
 
         self.def_prefixes = ROBOT_DEF_PREFIXES
 
@@ -229,6 +232,7 @@ class RobotSupervisor:
         if self.debug:
             self._publish_comm_topology(comm_edges, positions)
             self._publish_task_assignment()
+            self._publish_task_plan()
             self._publish_robot_markers()
 
     def _publish_comm_topology(self, edges: set, positions: dict):
@@ -307,6 +311,52 @@ class RobotSupervisor:
         msg = MarkerArray()
         msg.markers.append(marker)
         self._pub_task_assignment.publish(msg)
+
+    def _publish_task_plan(self):
+        """각 로봇의 outbox에서 planned_tasks_id를 읽어 로봇 위치부터 순차적으로 LINE_STRIP으로 publish"""
+        msg = MarkerArray()
+        stamp = self.node.get_clock().now().to_msg()
+
+        for idx, robot in enumerate(self.tracked):
+            if self._is_stale(robot):
+                continue
+            outbox = robot.last_outbox
+            if outbox is None:
+                continue
+            planned_tasks_id = outbox.get('planned_tasks_id')
+            if not planned_tasks_id:
+                continue
+
+            marker = Marker()
+            marker.header.stamp = stamp
+            marker.header.frame_id = self.frame_id_world
+            marker.ns = "task_plan"
+            marker.id = idx
+            marker.type = Marker.LINE_STRIP
+            marker.action = Marker.ADD
+            marker.scale.x = 0.08
+            marker.color.r = 1.0
+            marker.color.g = 0.5
+            marker.color.b = 0.0
+            marker.color.a = 0.8
+            marker.pose.orientation.w = 1.0
+            marker.lifetime = Duration(sec=1, nanosec=0)
+
+            robot_t = robot.get_position_3d()
+            marker.points.append(Point(x=float(robot_t[0]), y=float(robot_t[1]), z=float(robot_t[2])))
+
+            for task_id in planned_tasks_id:
+                fire_node = self.supervisor.getFromDef(task_id)
+                if fire_node is None:
+                    break
+                fire_t = fire_node.getField("translation").getSFVec3f()
+                marker.points.append(Point(x=float(fire_t[0]), y=float(fire_t[1]), z=float(fire_t[2])))
+
+            if len(marker.points) > 1:
+                msg.markers.append(marker)
+
+        if msg.markers:
+            self._pub_task_plan.publish(msg)
 
     def _publish_robot_markers(self):
         """각 로봇의 위치·방향을 ARROW Marker로 publish"""

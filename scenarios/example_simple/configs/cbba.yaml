@@ -6,7 +6,7 @@ agent:
   behavior_tree_xml: "default_bt.xml"
 
 decision_making:
-  plugin: plugins.cbba.cbba.CBBA
+  plugin: plugins.mrta.cbba.cbba.CBBA
   CBBA:  
     max_tasks_per_agent: 5 
     task_reward_discount_factor: 0.999 

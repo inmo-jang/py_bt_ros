@@ -83,9 +83,9 @@ class GatherLocalInfo(ConditionWithROSTopics):
 
         # [4] 수신 메시지: 미수신 시 빈 리스트로 폴백
         try:
-            self.agent.messages_received = json.loads(cache["local_comm_inbox"].data)
+            self.agent.messages_received = [AttrDict(m) for m in json.loads(cache["local_comm_inbox"].data)]
         except (KeyError, AttributeError, json.JSONDecodeError, TypeError):
-            self.agent.messages_received = {}
+            self.agent.messages_received = []
 
         return True
 
