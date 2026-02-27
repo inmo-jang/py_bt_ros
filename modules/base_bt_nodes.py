@@ -10,6 +10,7 @@ class BTNodeList:
     ]
 
     ACTION_NODES = [
+        'AssignTask',
     ]
 
     CONDITION_NODES = [
@@ -258,3 +259,33 @@ class AlwaysSuccess(SyncCondition):
     def _check(self, agent, blackboard):
         return Status.SUCCESS
     
+
+# Load decision-making class lazily: only if 'decision_making.plugin' is set in config.
+# Scenarios that do not use DecisionMakingNode / AssignTask can omit this config key.
+import importlib
+from modules.utils import config
+_dm_plugin_path = config.get('decision_making', {}).get('plugin')
+if _dm_plugin_path:
+    _module_path, _class_name = _dm_plugin_path.rsplit('.', 1)
+    decision_making_class = getattr(importlib.import_module(_module_path), _class_name)
+else:
+    decision_making_class = None
+
+
+# Decision-making node
+class AssignTask(SyncAction):
+    def __init__(self, name, agent):
+        super().__init__(name, self._decide)
+        if decision_making_class is None:
+            raise RuntimeError("[AssignTask] 'decision_making.plugin' is not set in config.")
+        self.decision_maker = decision_making_class(agent)
+
+    def _decide(self, agent, blackboard):
+        assigned_task_id = self.decision_maker.decide(blackboard)      
+        # agent.set_assigned_task_id(assigned_task_id)  
+        blackboard['assigned_task_id'] = assigned_task_id
+        if assigned_task_id is None:            
+            return Status.FAILURE        
+        else:                        
+            return Status.SUCCESS    
+        
