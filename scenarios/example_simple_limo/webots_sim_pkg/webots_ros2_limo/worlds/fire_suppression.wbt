@@ -8,7 +8,7 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/SandyGround.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/Grass.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/trees/protos/Oak.proto"
-EXTERNPROTO "../protos/LimoFourDiff.proto"
+EXTERNPROTO "../protos/LimoFourDiff_x2.proto"
 IMPORTABLE EXTERNPROTO "../protos/Fire.proto"
 
 WorldInfo {
@@ -425,7 +425,7 @@ DEF Base Pose {
     }
   ]
 }
-DEF Limo_1 LimoFourDiff {
-  translation -8 8 0.15
+DEF Limo_1 LimoFourDiff_x2 {
+  translation -8 8 0.6
   name "Limo_1"
 }

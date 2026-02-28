@@ -180,7 +180,7 @@ PROTO LimoFourDiff [
           translation 0.100000 0.065000 -0.100000
           children [
             DEF limo_wheel_visual CadShape {
-              url "../resource/limo_description/meshes/limo_wheel_low.dae"
+              url "../resource/limo_description/meshes/limo_wheel.dae"
             }
           ]
           name "front_left_wheel_link"

@@ -19,8 +19,12 @@ diffdrive_controller:
     right_wheel_names: ["front_right_wheel", "rear_right_wheel"]
 
     # PROTO 기반 값
-    wheel_separation: 0.13 # 0.065 * 2
-    wheel_radius: 0.045
+    # wheel_separation: 0.13 # 0.065 * 2
+    # wheel_radius: 0.045
+
+    # x2 Scale의 경우
+    wheel_separation: 0.26 # 0.130 * 2 (2x scale)
+    wheel_radius: 0.090
 
     use_stamped_vel: false
     base_frame_id: "base_link"

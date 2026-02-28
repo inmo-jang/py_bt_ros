@@ -14,7 +14,7 @@ from launch_ros.actions import Node
 
 
 # 월드 파일에서 인식할 로봇 타입 목록
-ROBOTS_NAME_LIST = ['LimoFourDiff']
+ROBOTS_NAME_LIST = ['LimoFourDiff_x2']
 
 
 def create_namespaced_params_file(robot_name, template_path):
@@ -38,7 +38,6 @@ def create_namespaced_params_file(robot_name, template_path):
 
 def discover_robots_from_world(world_path):
     """월드 파일에서 LimoFourDiff 기반 로봇들의 DEF 이름을 추출.
-
     DEF가 없는 단일 LimoFourDiff도 감지하여 기본 이름으로 반환.
     """
     robot_names = []
@@ -114,21 +113,12 @@ def generate_launch_description():
         )
 
         # Topic remappings
-        if use_namespace:
-            # namespace 사용 시: webots_ros2_driver가 robot_name prefix를 붙이므로
-            # 이중 네임스페이스 방지를 위해 remapping
-            mappings = [
-                ('diffdrive_controller/cmd_vel', f'/{robot_name}/cmd_vel'),
-                ('diffdrive_controller/odom', f'/{robot_name}/odom'),
-                (f'{robot_name}/laser', 'scan'),
-            ]
-        else:
-            # 단일 로봇: robot_name 기반으로 remapping
-            mappings = [
-                ('/diffdrive_controller/cmd_vel', '/cmd_vel'),
-                ('/diffdrive_controller/odom', '/odom'),
-                (f'/{robot_name}/laser', '/scan'),
-            ]
+        mappings = [
+            ('diffdrive_controller/cmd_vel', f'/{robot_name}/cmd_vel'),
+            ('diffdrive_controller/odom', f'/{robot_name}/odom'),
+            (f'{robot_name}/laser', f'/{robot_name}/scan'),
+            (f'{robot_name}/scan/point_cloud', f'/{robot_name}/scan/point_cloud'),
+        ]
 
         # 다중 로봇 시 namespace에 맞는 params 파일 생성
         if use_namespace:
@@ -167,12 +157,14 @@ def generate_launch_description():
             package='controller_manager',
             executable='spawner',
             output='screen',
+            emulate_tty=True,
             arguments=spawner_args_jsb,
         )
         diffdrive_controller_spawner = Node(
             package='controller_manager',
             executable='spawner',
             output='screen',
+            emulate_tty=True,
             arguments=spawner_args_ddc,
         )
 
