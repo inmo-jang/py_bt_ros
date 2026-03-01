@@ -101,6 +101,7 @@ class MoveTo(ActionWithROSAction):
         ps.pose.position.x = x; ps.pose.position.y = y
         ps.pose.orientation.w = 1.0
         self.goal_pub.publish(ps)
+        return Status.RUNNING
 
 
 
