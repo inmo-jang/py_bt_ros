@@ -240,5 +240,5 @@ class Explore(ActionWithROSAction):
             if new_goal is not False:
                 self.client.send_goal_async(new_goal).add_done_callback(self._on_goal_response)
             self.time_started = self.ros.node.get_clock().now().nanoseconds / 1e9  # 시간 초기화  
-
+        return Status.RUNNING
 

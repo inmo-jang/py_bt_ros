@@ -1,8 +1,8 @@
-# Example: Multi-Robot Fire Suppression (Webots)
+# Scenario: Multi-Robot Fire Suppression (Webots)
 
 ## Overview
 
-This scenario is a **demo that ports the `simple` scenario of [space-simulator](https://github.com/inmo-jang/space-simulator) to the Webots environment**.
+This is a **multi-robot fire suppression scenario** running on Webots simulator, showcasing distributed task allocation algorithms.
 
 The goal is to demonstrate that the BT (Behaviour Tree)-based multi-robot architecture implemented in space-simulator can run identically in a real physics simulator (Webots). The BT nodes, configuration files, and execution patterns are all kept consistent with space-simulator.
 
@@ -106,7 +106,7 @@ ReactiveSequence
 ### Prerequisites
 
 ```bash
-cd scenarios/example_simple/sim_webots
+cd scenarios/simple/sim_webots
 colcon build --symlink-install
 source install/local_setup.bash
 ```
@@ -124,19 +124,19 @@ ros2 launch webots_ros2_husky robot_launch.py debug:=true
 ### Step 2: Run Action Servers (one terminal per robot)
 
 ```bash
-python3 scenarios/example_simple/action_servers/nav_action_server.py --ns /Fire_UGV_1
-python3 scenarios/example_simple/action_servers/nav_action_server.py --ns /Fire_UGV_2
-python3 scenarios/example_simple/action_servers/nav_action_server.py --ns /Fire_UGV_3
+python3 scenarios/simple/action_servers/nav_action_server.py --ns /Fire_UGV_1
+python3 scenarios/simple/action_servers/nav_action_server.py --ns /Fire_UGV_2
+python3 scenarios/simple/action_servers/nav_action_server.py --ns /Fire_UGV_3
 ```
 
 > **(Optional) Launch all robots at once with a shell script**
 >
 > ```bash
 > # Default: 10 robots (Fire_UGV_1 ~ Fire_UGV_10)
-> bash scenarios/example_simple/scripts/run_action_servers.sh
+> bash scenarios/simple/scripts/run_action_servers.sh
 >
 > # Or specify the number of robots
-> bash scenarios/example_simple/scripts/run_action_servers.sh 3
+> bash scenarios/simple/scripts/run_action_servers.sh 3
 > ```
 >
 > Press **Ctrl+C** to stop all action servers at once.
@@ -147,16 +147,16 @@ Use `--ns` to specify each robot's namespace and `--config` to select the MRTA a
 
 ```bash
 # Greedy
-python3 main.py --config=scenarios/example_simple/configs/greedy.yaml --ns /Fire_UGV_1
+python3 main.py --config=scenarios/simple/configs/greedy.yaml --ns /Fire_UGV_1
 
 # GRAPE
-python3 main.py --config=scenarios/example_simple/configs/grape.yaml --ns /Fire_UGV_1
+python3 main.py --config=scenarios/simple/configs/grape.yaml --ns /Fire_UGV_1
 
 # CBBA
-python3 main.py --config=scenarios/example_simple/configs/cbba.yaml --ns /Fire_UGV_1
+python3 main.py --config=scenarios/simple/configs/cbba.yaml --ns /Fire_UGV_1
 
 # Hungarian
-python3 main.py --config=scenarios/example_simple/configs/hungarian.yaml --ns /Fire_UGV_1
+python3 main.py --config=scenarios/simple/configs/hungarian.yaml --ns /Fire_UGV_1
 ```
 
 > **(Optional) Launch all robots at once with a shell script**
@@ -165,19 +165,19 @@ python3 main.py --config=scenarios/example_simple/configs/hungarian.yaml --ns /F
 > # Usage: bash run_bt_runners.sh [NUM_ROBOTS] [CONFIG_NAME]
 >
 > # Default: 10 robots, grape.yaml
-> bash scenarios/example_simple/scripts/run_bt_runners.sh
+> bash scenarios/simple/scripts/run_bt_runners.sh
 >
 > # 6 robots with GRAPE
-> bash scenarios/example_simple/scripts/run_bt_runners.sh 6 grape.yaml
+> bash scenarios/simple/scripts/run_bt_runners.sh 6 grape.yaml
 >
 > # 6 robots with CBBA
-> bash scenarios/example_simple/scripts/run_bt_runners.sh 6 cbba.yaml
+> bash scenarios/simple/scripts/run_bt_runners.sh 6 cbba.yaml
 >
 > # 6 robots with Greedy
-> bash scenarios/example_simple/scripts/run_bt_runners.sh 6 greedy.yaml
+> bash scenarios/simple/scripts/run_bt_runners.sh 6 greedy.yaml
 >
 > # 6 robots with Hungarian
-> bash scenarios/example_simple/scripts/run_bt_runners.sh 6 hungarian.yaml
+> bash scenarios/simple/scripts/run_bt_runners.sh 6 hungarian.yaml
 > ```
 >
 > Press **Ctrl+C** to stop all BT runners at once.
@@ -203,7 +203,7 @@ ros2 service call /world/fire/spawn std_srvs/srv/Empty
 ### (Optional) RViz Visualisation
 
 ```
-rviz2 -d scenarios/example_simple/sim_webots/webots_ros2_husky/default_view.rviz
+rviz2 -d scenarios/simple/sim_webots/webots_ros2_husky/default_view.rviz
 ```
 
 Launch Webots with `debug:=true` (Step 1), then open RViz and add the following displays:
@@ -223,7 +223,7 @@ All visualisation markers have a 1 s lifetime and auto-expire when robots go sil
 ## File Structure
 
 ```
-example_simple/
+simple/
 ├── README.md
 ├── default_bt.xml              # BT structure definition (Groot compatible)
 ├── bt_nodes.py                 # Custom BT node implementations
