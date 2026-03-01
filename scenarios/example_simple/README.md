@@ -21,7 +21,7 @@ The following **Multi-Robot Task Allocation (MRTA) plugins** are available:
 | **Greedy** | `greedy.yaml` | Each robot independently picks the nearest available fire |
 | **GRAPE** | `grape.yaml` | Distributed coalition formation via game-theoretic partition |
 | **CBBA** | `cbba.yaml` | Consensus-based bundle algorithm for multi-task assignment |
-
+| **Hungarian** | `hungarian.yaml` | Distributed Hungarian algorithm with network consensus for optimal task-agent matching |
 ---
 
 
@@ -154,6 +154,9 @@ python3 main.py --config=scenarios/example_simple/configs/grape.yaml --ns /Fire_
 
 # CBBA
 python3 main.py --config=scenarios/example_simple/configs/cbba.yaml --ns /Fire_UGV_1
+
+# Hungarian
+python3 main.py --config=scenarios/example_simple/configs/hungarian.yaml --ns /Fire_UGV_1
 ```
 
 > **(Optional) Launch all robots at once with a shell script**
@@ -172,6 +175,9 @@ python3 main.py --config=scenarios/example_simple/configs/cbba.yaml --ns /Fire_U
 >
 > # 6 robots with Greedy
 > bash scenarios/example_simple/scripts/run_bt_runners.sh 6 greedy.yaml
+>
+> # 6 robots with Hungarian
+> bash scenarios/example_simple/scripts/run_bt_runners.sh 6 hungarian.yaml
 > ```
 >
 > Press **Ctrl+C** to stop all BT runners at once.

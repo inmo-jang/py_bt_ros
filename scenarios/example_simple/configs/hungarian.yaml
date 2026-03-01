@@ -6,7 +6,7 @@ agent:
   behavior_tree_xml: "default_bt.xml"
 
 decision_making: # Case 3
-  plugin: plugins.hungarian.dec_hungarian.DistributedHungarian
+  plugin: plugins.mrta.hungarian.dec_hungarian.DistributedHungarian
   Hungarian:
     task_reward_discount_factor: 0.999 
     epsilon: 1e-10
