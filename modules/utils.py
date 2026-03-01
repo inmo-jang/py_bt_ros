@@ -2,6 +2,7 @@ import yaml
 import os
 import xml.etree.ElementTree as ET
 import importlib
+import pygame
 
 def load_config(config_file):
     with open(config_file, 'r', encoding="utf-8") as f:
@@ -62,6 +63,26 @@ class AttrDict(dict):
             return self[key]
         except KeyError:
             raise AttributeError(key)
+
+
+def msg_serialize_default(obj):
+    """json.dumps의 default 함수.
+    pygame.Vector2, set, 일반 Python 객체(task/agent 등)를 JSON으로 직렬화."""
+    if isinstance(obj, set):
+        return list(obj)
+    if isinstance(obj, pygame.math.Vector2):
+        return {'__v2__': True, 'x': obj.x, 'y': obj.y}
+    if hasattr(obj, '__dict__'):
+        return obj.__dict__
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+def msg_deserialize_hook(d):
+    """json.loads의 object_hook.
+    __v2__ 마커가 있으면 pygame.math.Vector2로 복원, 나머지는 AttrDict로 변환."""
+    if '__v2__' in d:
+        return pygame.math.Vector2(d['x'], d['y'])
+    return AttrDict(d)
 
 
 def optional_import(name):

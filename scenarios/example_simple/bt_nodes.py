@@ -6,7 +6,7 @@ import pygame
 
 from modules.base_bt_nodes import BTNodeList, Status, Sequence, Fallback, ReactiveSequence, ReactiveFallback, AssignTask, SyncCondition
 from modules.base_bt_nodes_ros import ActionWithROSAction, ActionWithROSTopic, ConditionWithROSTopics
-from modules.utils import config, AttrDict
+from modules.utils import config, AttrDict, msg_serialize_default, msg_deserialize_hook
 
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
@@ -61,7 +61,7 @@ class GatherLocalInfo(ConditionWithROSTopics):
         outbox = getattr(agent, 'message_to_share', {})  # GatherLocalInfo 실행 시점에 agent의 임시 속성에서 메시지 가져오기
         if outbox is not None:
             msg = String()
-            msg.data = json.dumps(outbox, default=lambda x: list(x) if isinstance(x, set) else x)
+            msg.data = json.dumps(outbox, default=msg_serialize_default)
             self._pub_outbox.publish(msg)
 
         # [2] 필수 topic 수신 확인: 하나라도 없으면 False
@@ -83,7 +83,7 @@ class GatherLocalInfo(ConditionWithROSTopics):
 
         # [4] 수신 메시지: 미수신 시 빈 리스트로 폴백
         try:
-            self.agent.messages_received = [AttrDict(m) for m in json.loads(cache["local_comm_inbox"].data)]
+            self.agent.messages_received = json.loads(cache["local_comm_inbox"].data, object_hook=msg_deserialize_hook)
         except (KeyError, AttributeError, json.JSONDecodeError, TypeError):
             self.agent.messages_received = []
 
