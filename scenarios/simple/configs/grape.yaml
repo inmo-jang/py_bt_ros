@@ -1,5 +1,5 @@
 scenario:
-  environment: scenarios.example_simple
+  environment: scenarios.simple
 
 agent:
   namespaces: "/Fire_UGV_1"  # default; override with --ns, e.g. --ns /Fire_UGV_2

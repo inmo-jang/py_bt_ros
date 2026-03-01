@@ -4,14 +4,14 @@
 #   NUM_ROBOTS: number of robots to launch (default: 10)
 #
 # Run from the project root:
-#   bash scenarios/example_simple/scripts/run_action_servers.sh
-#   bash scenarios/example_simple/scripts/run_action_servers.sh 3
+#   bash scenarios/simple/scripts/run_action_servers.sh
+#   bash scenarios/simple/scripts/run_action_servers.sh 3
 
 NUM_ROBOTS=${1:-10}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-NAV_SERVER="$ROOT_DIR/scenarios/example_simple/action_servers/nav_action_server.py"
+NAV_SERVER="$ROOT_DIR/scenarios/simple/action_servers/nav_action_server.py"
 
 PIDS=()
 

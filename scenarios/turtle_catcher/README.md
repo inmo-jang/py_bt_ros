@@ -28,12 +28,12 @@ Move the spawned turtle using keyboard input
 
 Run Turtle1 Action Server
 ```
-python3 ./scenarios/example_turtlesim/action_servers/turtle_nav_action_server.py --ns /turtle1
+python3 ./scenarios/turtle_catcher/action_servers/turtle_nav_action_server.py --ns /turtle1
 ```
 
 Run Behaviour Tree Controller
 ```
-python3 main.py --config=scenarios/example_turtlesim/configs/config_turtlesim.yaml
+python3 main.py --config=scenarios/turtle_catcher/configs/config_turtlesim.yaml
 ```
 
 ## Demo

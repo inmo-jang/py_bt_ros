@@ -1,5 +1,5 @@
 scenario: 
-  environment: scenarios.example_turtlesim
+  environment: scenarios.turtle_catcher
 
 agent:
   namespaces: "/turtle1"
