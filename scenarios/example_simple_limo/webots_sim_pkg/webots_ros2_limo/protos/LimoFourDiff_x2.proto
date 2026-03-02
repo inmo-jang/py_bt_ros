@@ -53,13 +53,13 @@ PROTO LimoFourDiff_x2 [
           }
           Lidar {
             name "laser"
-            fieldOfView 6.283180
-            horizontalResolution 120
-            numberOfLayers 1
-            minRange 0.300000
-            maxRange 15.000000
+            fieldOfView 3.141593 # 2.094395 #6.283185 # 라디안 (= 360도)
+            horizontalResolution 360 # 빔 개수
+            numberOfLayers 1 # xy평면에 대한 라이다 정보 추출. 1이 아니면 xyz평면에 대한 정보
+            minRange 0.200000 # 측정 최소 범위
+            maxRange 30.000000 # 측정 최대 범위
             noise 0.000667
-            resolution 0.015000
+            resolution 0.015000 # Lidar 최소 측정 시작 범위
           }
         ]
         name "laser_link"
