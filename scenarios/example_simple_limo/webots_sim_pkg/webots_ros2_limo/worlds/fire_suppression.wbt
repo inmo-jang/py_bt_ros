@@ -436,6 +436,32 @@ DEF Base Pose {
   ]
 }
 DEF Limo_1 LimoFourDiff_x2 {
-  translation -8 8 0.6
+  translation -4.14984 -9.07909 0.13
+  rotation 0 0 1 -0.785395307179586
   name "Limo_1"
+}
+DEF Limo_2 LimoFourDiff_x2 {
+  translation 11.5842 11.9149 0.13
+  rotation 0 0 1 -0.785395307179586
+  name "Limo_2"
+}
+DEF Limo_3 LimoFourDiff_x2 {
+  translation -0.542579 9.17842 0.13
+  rotation 0 0 1 -0.785395307179586
+  name "Limo_3"
+}
+DEF Limo_4 LimoFourDiff_x2 {
+  translation 9.85186 -4.75175 0.13
+  rotation 0 0 -1 0.785395307179586
+  name "Limo_4"
+}
+DEF Limo_5 LimoFourDiff_x2 {
+  translation -6.12098 19.4378 0.13
+  rotation 0 0 -1 0.785395307179586
+  name "Limo_5"
+}
+DEF Limo_6 LimoFourDiff_x2 {
+  translation -7.63283 -2.31261 0.13
+  rotation 0 0 -1 0.785395307179586
+  name "Limo_6"
 }

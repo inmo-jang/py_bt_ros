@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """
-Rescue UGV NavigateToPose Action Server
+Limo NavigateToPose Action Server
 - Tangential obstacle avoidance: steer perpendicular to nearest obstacle
-- INF(개활지) 반영 + 거리 클리핑(<=0.5 -> 0.0, >=12 -> inf)
+- INF(개활지) 반영 + 거리 클리핑
 - angle_increment < 0 인 scan 정규화 (좌/우 뒤집힘 방지)
 - angular.z 양수 => 왼쪽 회전 (ROS 표준)
+
+Adapted from the Husky (Fire_UGV) nav_action_server for the AgileX Limo robot.
+Key differences:
+  - Smaller footprint → tighter obstacle distances
+  - Lower max speeds suitable for Limo hardware
+  - Adjusted clip distances to match Limo lidar specs (minRange=0.2m)
 """
 
 import math
@@ -44,21 +50,21 @@ def quaternion_to_yaw(q) -> float:
     return math.atan2(siny_cosp, cosy_cosp)
 
 
-class UGVNavServer(Node):
+class LimoNavServer(Node):
     """
-    NavigateToPose Action Server for Rescue UGV
+    NavigateToPose Action Server for AgileX Limo
     - Logic: Goal tracking + Tangential obstacle avoidance
     - Robust scan preprocessing:
         * normalize reversed scan (angle_increment < 0)
-        * <= 0.5m -> 0.0 (blocked)
-        * >= 12m -> inf (open)
+        * <= clip_close_dist -> 0.0 (blocked)
+        * >= clip_open_dist  -> inf (open)
     """
 
     def __init__(self, ns: str = ""):
         ns = (ns or "").strip("/")
         if ns and not ns.startswith("/"):
             ns = "/" + ns
-        super().__init__("rescue_ugv_navigate_server", namespace=ns)
+        super().__init__("limo_navigate_server", namespace=ns)
 
         # Declare parameters
         self._declare_parameters()
@@ -103,21 +109,21 @@ class UGVNavServer(Node):
         )
 
         self.get_logger().info(
-            f"UGVNavServer started. "
+            f"LimoNavServer started. "
             f"Namespace: {self.get_namespace()}, Action: navigate_to_pose"
         )
 
     def _declare_parameters(self):
         # 제어 주기 (Hz)
-        self.declare_parameter("control_rate", 30.0)  # 20.0
+        self.declare_parameter("control_rate", 30.0)
 
-        # 최대 속도 제한
-        self.declare_parameter("max_linear_vel", 1.0)  # 1.0
-        self.declare_parameter("max_angular_vel", 1.0)  # 1.0
+        # 최대 속도 제한 (Limo: smaller robot, moderate speeds)
+        self.declare_parameter("max_linear_vel", 0.8)
+        self.declare_parameter("max_angular_vel", 1.0)
 
         # 목표 추종 게인
-        self.declare_parameter("k_linear", 0.8)  # 0.5
-        self.declare_parameter("k_angular", 1.0)  # 1.0
+        self.declare_parameter("k_linear", 0.8)
+        self.declare_parameter("k_angular", 1.0)
 
         # 부드러운 이동 설정
         self.declare_parameter("min_linear_scale", 0.15)
@@ -129,14 +135,14 @@ class UGVNavServer(Node):
         # 목표 도착 판정
         self.declare_parameter("goal_tolerance", 0.3)
 
-        # 장애물 회피 설정 (Tangential)
-        self.declare_parameter("obstacle_distance_slow", 1.0)   # 감속 시작 거리
-        self.declare_parameter("obstacle_distance_stop", 1.0)   # 긴급 정지 거리
+        # 장애물 회피 설정 (Tangential) — Limo는 Husky보다 작아 거리를 타이트하게
+        self.declare_parameter("obstacle_distance_slow", 0.8)   # 감속 시작 거리
+        self.declare_parameter("obstacle_distance_stop", 0.5)   # 긴급 정지 거리
         self.declare_parameter("front_sector_angle", 45.0)      # 전방 감시 각도 (deg)
-        self.declare_parameter("avoidance_gain", 0.5)           # 회피 각속도 (rad/s), tangent 방향으로 회전할 강도
+        self.declare_parameter("avoidance_gain", 0.6)           # 회피 각속도 (rad/s)
 
-        # Scan preprocessing
-        self.declare_parameter("clip_close_dist", 0.5)          # <= 이하면 0.0 처리
+        # Scan preprocessing — Limo lidar minRange=0.2m
+        self.declare_parameter("clip_close_dist", 0.3)          # <= 이하면 0.0 처리
         self.declare_parameter("clip_open_dist", 12.0)          # >= 이면 inf 처리
 
     def _load_parameters(self):
@@ -157,14 +163,14 @@ class UGVNavServer(Node):
         self.clip_close_dist = float(self.get_parameter("clip_close_dist").value)
         self.clip_open_dist = float(self.get_parameter("clip_open_dist").value)
 
-        self.rotation_shim_threshold = float(self.get_parameter("rotation_shim_threshold").value)        
+        self.rotation_shim_threshold = float(self.get_parameter("rotation_shim_threshold").value)
 
 
     def _pose_callback(self, msg: PoseStamped):
         self._current_pose = msg
 
     # ------------------------------------------------------------
-    # Scan preprocessing (핵심)
+    # Scan preprocessing
     # ------------------------------------------------------------
     def _scan_callback(self, msg: LaserScan):
         """
@@ -190,7 +196,6 @@ class UGVNavServer(Node):
         proc = []
         for r in ranges:
             if not math.isfinite(r):
-                # keep INF as INF (open)
                 proc.append(float('inf'))
                 continue
 
@@ -227,7 +232,6 @@ class UGVNavServer(Node):
         goal_handle.execute()
 
     def _publish_cmd(self, linear: float, angular: float):
-        # angular.z > 0 => left turn (as user confirmed)
         msg = TwistStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = "world"
@@ -311,13 +315,11 @@ class UGVNavServer(Node):
             return front_min, 0.0, danger_level
 
         # 장애물 반대 방향으로 회전
-        # nearest_angle > 0 (왼쪽 장애물) → 오른쪽(음수) 회전
-        # nearest_angle < 0 (오른쪽 장애물) → 왼쪽(양수) 회전
         avoidance_angular = -math.copysign(self.avoidance_gain, nearest_angle)
         return front_min, avoidance_angular, danger_level
 
     def _get_full_scan_min_distance(self) -> float:
-        """전체 스캔(전방 180°)에서 가장 가까운 실제 장애물까지의 거리.
+        """전체 스캔에서 가장 가까운 실제 장애물까지의 거리.
         INF(개활지)는 장애물이 아니므로 제외."""
         if not self._scan_ready():
             return float('inf')
@@ -340,7 +342,7 @@ class UGVNavServer(Node):
         distance = math.hypot(dx, dy)
 
         target_yaw = math.atan2(dy, dx)
-        heading_error = normalize_angle(target_yaw - yaw)  # +면 왼쪽
+        heading_error = normalize_angle(target_yaw - yaw)
 
         # Goal tracking용 속도 (RotationShim)
         is_rotating_only = abs(heading_error) > self.rotation_shim_threshold
@@ -358,12 +360,12 @@ class UGVNavServer(Node):
 
         # ── 3단계 상태 결정 ──────────────────────────────────────────────────
         if danger_level > 0.0:
-            # [1] 전방 ±45° 장애물 감지: 접선 방향으로 제자리 회전 (최우선)
+            # [1] 전방 ±45° 장애물 감지: 접선 방향으로 제자리 회전
             linear_vel = 0.0
             angular_vel = avoidance_angular
         elif full_scan_min < self.obstacle_distance_slow:
             # [2] 전방에서 벗어났지만 근처에 여전히 장애물 존재 (coast zone):
-            #     현재 방향 그대로 직진 → goal 재정렬 없음 (oscillation 방지)
+            #     현재 방향 그대로 직진 (oscillation 방지)
             linear_vel = self.max_linear_vel
             angular_vel = 0.0
         else:
@@ -396,7 +398,6 @@ class UGVNavServer(Node):
         try:
             while rclpy.ok():
                 if not goal_handle.is_active:
-                    # Preempted by a newer goal
                     self._stop()
                     return result
 
@@ -465,13 +466,12 @@ class UGVNavServer(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    # 네임스페이스 설정
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ns", type=str, default="/Fire_UGV_2", help="ROS namespace, e.g. /Fire_UGV_1")
+    parser.add_argument("--ns", type=str, default="/Limo_1", help="ROS namespace, e.g. /Limo_1")
     args = parser.parse_args()
 
-    node = UGVNavServer(ns=args.ns)
+    node = LimoNavServer(ns=args.ns)
     executor = MultiThreadedExecutor(num_threads=4)
     executor.add_node(node)
 
