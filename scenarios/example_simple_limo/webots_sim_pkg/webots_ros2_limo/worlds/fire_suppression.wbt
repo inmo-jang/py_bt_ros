@@ -9,9 +9,19 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/Grass.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/trees/protos/Oak.proto"
 EXTERNPROTO "../protos/LimoFourDiff_x2.proto"
+# EXTERNPROTO "../protos/LimoAckerman_x2.proto"  # Ackermann 모드 (위 줄 주석, 이 줄 해제)
 IMPORTABLE EXTERNPROTO "../protos/Fire.proto"
 
 WorldInfo {
+  contactProperties [
+    ContactProperties {
+      material1 "wheel"
+      material2 "default"
+      coulombFriction 1.0
+      forceDependentSlip 0.01
+      bounce 0
+    }
+  ]
 }
 Viewpoint {
   orientation 0.40640808586651755 0.004892105031719363 -0.913678573159441 3.119589813678512

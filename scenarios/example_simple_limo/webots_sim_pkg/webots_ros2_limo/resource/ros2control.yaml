@@ -26,6 +26,9 @@ diffdrive_controller:
     wheel_separation: 0.26 # 0.130 * 2 (2x scale)
     wheel_radius: 0.090
 
+    # Adjust this multiplier if odometry is not accurate
+    wheel_separation_multiplier: 1.0
+
     use_stamped_vel: false
     base_frame_id: "base_link"
     

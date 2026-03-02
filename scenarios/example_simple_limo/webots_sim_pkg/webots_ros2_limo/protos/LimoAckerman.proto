@@ -31,7 +31,7 @@ PROTO LimoAckerman [
         rotation 0.000000 0.000000 1.000000 1.570000
         children [
           DEF limo_base_visual CadShape {
-            url "../resource/limo_description/meshes/limo_base_opt.dae"
+            url "../resource/limo_description/meshes/limo_base_low_opt.dae"
           }
         ]
       }
@@ -454,7 +454,7 @@ PROTO LimoAckerman [
     ]
     name IS name
     boundingObject Box {
-        size 0.130000 0.120000 0.100000
+        size 0.260000 0.240000 0.200000
     }
     physics Physics {
     }

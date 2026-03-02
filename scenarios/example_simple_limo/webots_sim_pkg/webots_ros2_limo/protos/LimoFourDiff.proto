@@ -184,6 +184,7 @@ PROTO LimoFourDiff [
             }
           ]
           name "front_left_wheel_link"
+          contactMaterial "wheel"
           boundingObject Pose {
             translation 0.000000 0.022500 0.000000
             rotation 1.000000 0.000000 0.000000 1.570000
@@ -227,6 +228,7 @@ PROTO LimoFourDiff [
             USE limo_wheel_visual
           ]
           name "front_right_wheel_link"
+          contactMaterial "wheel"
           boundingObject Pose {
             translation 0.000000 0.022500 0.000000
             rotation 1.000000 0.000000 0.000000 1.570000
@@ -269,7 +271,7 @@ PROTO LimoFourDiff [
             USE limo_wheel_visual
           ]
           name "rear_left_wheel_link"
-          boundingObject Pose {
+          contactMaterial "wheel"
             translation 0.000000 0.022500 0.000000
             rotation 1.000000 0.000000 0.000000 1.570000
             children [
@@ -312,6 +314,7 @@ PROTO LimoFourDiff [
             USE limo_wheel_visual
           ]
           name "rear_right_wheel_link"
+          contactMaterial "wheel"
           boundingObject Pose {
             translation 0.000000 0.022500 0.000000
             rotation 1.000000 0.000000 0.000000 1.570000
