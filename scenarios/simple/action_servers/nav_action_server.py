@@ -112,8 +112,8 @@ class UGVNavServer(Node):
         self.declare_parameter("control_rate", 30.0)  # 20.0
 
         # 최대 속도 제한
-        self.declare_parameter("max_linear_vel", 1.0)  # 1.0
-        self.declare_parameter("max_angular_vel", 0.5)  # 1.0
+        self.declare_parameter("max_linear_vel", 1.0)  # 1.0  Limo: 0.8
+        self.declare_parameter("max_angular_vel", 0.5)  # 1.0  Limo: 1.0
 
         # 목표 추종 게인
         self.declare_parameter("k_linear", 0.8)  # 0.5
