@@ -37,41 +37,39 @@ def create_namespaced_params_file(robot_name, template_path):
 
 
 def discover_robots_from_world(world_path):
-    """월드 파일에서 LimoFourDiff 기반 로봇들의 DEF 이름을 추출.
-    DEF가 없는 단일 LimoFourDiff도 감지하여 기본 이름으로 반환.
-    """
+    """월드 파일에서 limo 기반 로봇들의 DEF 이름을 추출"""
     robot_names = []
-    # DEF SomeName LimoFourDiff 패턴 매칭
     pattern = re.compile(r'^DEF\s+(\w+)\s+(' + '|'.join(ROBOTS_NAME_LIST) + r')\b', re.MULTILINE)
-
+    
     with open(world_path, 'r') as f:
         content = f.read()
-
+    
     for match in pattern.finditer(content):
         robot_names.append(match.group(1))
-
+    
     return robot_names
 
 
 def generate_launch_description():
     package_dir = get_package_share_directory('webots_ros2_limo')
 
-    # ✅ Webots가 /tmp 월드를 열더라도 controllers/ 폴더를 찾을 수 있도록 경로 설정
+    # ✅ 기존 값이 있으면 보존하면서 package_dir을 추가
     prev_extra = os.environ.get('WEBOTS_EXTRA_PROJECT_PATH', '')
     extra_path = package_dir if prev_extra == '' else (package_dir + os.pathsep + prev_extra)
 
     prev_proj = os.environ.get('WEBOTS_PROJECT_PATH', '')
     proj_path = package_dir if prev_proj == '' else (package_dir + os.pathsep + prev_proj)
 
+    # ✅ Webots가 /tmp world를 열더라도 여기 경로에서 controllers를 찾게 됨
     set_webots_paths = [
         SetEnvironmentVariable('WEBOTS_EXTRA_PROJECT_PATH', extra_path),
         SetEnvironmentVariable('WEBOTS_PROJECT_PATH', proj_path),
     ]
 
-    # debug:=true 시 world_supervisor 등에서 visualisation topics publish
+    # debug:=true 시 robot_supervisor, world_supervisor 모두 visualisation topics publish
     debug_arg = DeclareLaunchArgument(
         'debug', default_value='false',
-        description='Enable debug visualisation topics (fires in RViz, etc.)'
+        description='Enable debug visualisation topics (comm_topology, fires in RViz)'
     )
     set_debug_env = SetEnvironmentVariable('DEBUG', LaunchConfiguration('debug'))
 
@@ -83,28 +81,27 @@ def generate_launch_description():
     robot_names = discover_robots_from_world(world_path)
     print(f"[robot_launch] Discovered robots: {robot_names}")
 
-    # ROS control parameters
+    # ROS control spawners
     ros2_control_params = os.path.join(package_dir, 'resource', 'ros2control.yaml')
     controller_manager_timeout = ['--controller-manager-timeout', '50']
+
     robot_description_path = os.path.join(package_dir, 'resource', 'limo.urdf')
 
     # ----------------------------------------
     # 로봇별 동적 생성: robot_driver + controller spawners + WaitForControllerConnection
+    # Jazzy에서는 각 controller_manager가 namespace별 robot_description 토픽을
+    # 구독하므로, 로봇마다 namespaced robot_state_publisher를 별도로 생성한다.
     # ----------------------------------------
     robot_drivers = []
-    ros_control_items = []
+    ros_control_items = []  # robot_driver → waiting_node 순서 보장을 위한 리스트
     robot_state_publishers = []
 
     for robot_name in robot_names:
-        # 다중 로봇인 경우에만 namespace 적용
-        use_namespace = len(robot_names) > 1
-        ns = robot_name if use_namespace else None
-
         robot_state_publishers.append(
             Node(
                 package='robot_state_publisher',
                 executable='robot_state_publisher',
-                namespace=ns,
+                namespace=robot_name,
                 output='screen',
                 parameters=[{
                     'robot_description': '<robot name=""><link name=""/></robot>'
@@ -112,62 +109,51 @@ def generate_launch_description():
             )
         )
 
-        # Topic remappings
+        # namespace를 부여하므로 remapping 소스는 상대 경로(namespace 기준)로 지정
+        #
+        # webots_ros2_driver는 robot_name이 설정될 때 센서 토픽을
+        # '{robot_name}/{device_name}' 형태로 생성한다.
+        # namespace=robot_name도 함께 부여하면 이중 네임스페이스가 생기므로
+        # (예: /Fire_UGV_1/Fire_UGV_1/scan) 아래 remapping으로 되돌린다.
         mappings = [
             ('diffdrive_controller/cmd_vel', f'/{robot_name}/cmd_vel'),
             ('diffdrive_controller/odom', f'/{robot_name}/odom'),
-            (f'{robot_name}/laser', f'/{robot_name}/scan'),
-            (f'{robot_name}/scan/point_cloud', f'/{robot_name}/scan/point_cloud'),
+            (f'{robot_name}/laser', 'scan'),
+            (f'{robot_name}/scan/point_cloud', 'scan/point_cloud'),
         ]
 
-        # 다중 로봇 시 namespace에 맞는 params 파일 생성
-        if use_namespace:
-            namespaced_params = create_namespaced_params_file(robot_name, ros2_control_params)
-            params_file = namespaced_params
-        else:
-            params_file = ros2_control_params
-
+        # 각 로봇에 고유 namespace 부여 → /{robot_name}/controller_manager 생성
+        # namespace 사용 시 YAML 키가 /{robot_name}/{node_name} 형태여야 파라미터가 적용됨
+        namespaced_params = create_namespaced_params_file(robot_name, ros2_control_params)
         robot_driver = WebotsController(
             robot_name=robot_name,
-            namespace=ns,
+            namespace=robot_name,
             parameters=[
                 {'robot_description': robot_description_path,
                  'set_robot_state_publisher': True},
-                params_file
+                namespaced_params
             ],
             remappings=mappings
         )
         robot_drivers.append(robot_driver)
 
-        # Controller spawners
-        if use_namespace:
-            cm_prefix = f'{robot_name}/controller_manager'
-        else:
-            cm_prefix = None
-
-        spawner_args_jsb = ['joint_state_broadcaster']
-        spawner_args_ddc = ['diffdrive_controller']
-        if cm_prefix:
-            spawner_args_jsb += ['-c', cm_prefix]
-            spawner_args_ddc += ['-c', cm_prefix]
-        spawner_args_jsb += controller_manager_timeout
-        spawner_args_ddc += controller_manager_timeout
-
+        # 각 로봇 전용 spawner: -c 로 해당 로봇의 controller_manager 명시
         joint_state_broadcaster_spawner = Node(
             package='controller_manager',
             executable='spawner',
             output='screen',
-            emulate_tty=True,
-            arguments=spawner_args_jsb,
+            arguments=['joint_state_broadcaster',
+                       '-c', f'{robot_name}/controller_manager'] + controller_manager_timeout,
         )
         diffdrive_controller_spawner = Node(
             package='controller_manager',
             executable='spawner',
             output='screen',
-            emulate_tty=True,
-            arguments=spawner_args_ddc,
+            arguments=['diffdrive_controller',
+                       '-c', f'{robot_name}/controller_manager'] + controller_manager_timeout,
         )
 
+        # 해당 로봇의 controller_manager가 준비된 후에만 spawner 실행
         waiting_node = WaitForControllerConnection(
             target_driver=robot_driver,
             nodes_to_start=[joint_state_broadcaster_spawner, diffdrive_controller_spawner]
@@ -177,10 +163,11 @@ def generate_launch_description():
         ros_control_items.append(waiting_node)
 
     # LaunchDescription 구성
+    # ros_control_items 안에 robot_driver → waiting_node 쌍이 순서대로 포함됨
     launch_items = [
         debug_arg,
         set_debug_env,
-        *set_webots_paths,
+        *set_webots_paths,   # ✅ webots 앞에 들어가야 함
         webots,
         *robot_state_publishers,
         *ros_control_items,
@@ -196,12 +183,18 @@ def generate_launch_description():
     )
 
     return LaunchDescription(launch_items)
-
-
+    
 if __name__ == '__main__':
+    # VSCode 디버깅이나 직접 python3로 실행할 때 작동하는 부분
     from launch import LaunchService
 
+    # 1. LaunchDescription 생성
     ld = generate_launch_description()
+
+    # 2. LaunchService 초기화 및 설명(ld) 포함
     ls = LaunchService()
     ls.include_launch_description(ld)
+
+    # 3. 실행
     ls.run()
+    

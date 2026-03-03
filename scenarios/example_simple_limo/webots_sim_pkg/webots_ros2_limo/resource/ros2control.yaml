@@ -29,7 +29,7 @@ diffdrive_controller:
     # Adjust this multiplier if odometry is not accurate
     wheel_separation_multiplier: 1.0
 
-    use_stamped_vel: false
+    use_stamped_vel: true
     base_frame_id: "base_link"
     
     linear:
