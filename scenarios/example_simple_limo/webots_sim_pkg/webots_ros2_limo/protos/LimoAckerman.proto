@@ -1,0 +1,462 @@
+#VRML_SIM R2025a utf8
+# license: Apache License 2.0
+# license url: http://www.apache.org/licenses/LICENSE-2.0
+# This is a proto file for Webots for the LimoAckerman
+# Extracted from: /home/lsbean991/workspace/others/limo_gazebo/limo_description/urdf/limo_ackerman.urdf
+
+PROTO LimoAckerman [
+  field  SFVec3f     translation     0 0 0
+  field  SFRotation  rotation        0 0 1 0
+  field  SFString    name            "LimoAckerman"  # Is `Robot.name`.
+  field  SFString    controller      "<extern>"          # Is `Robot.controller`.
+  field  MFString    controllerArgs  []              # Is `Robot.controllerArgs`.
+  field  SFString    customData      ""              # Is `Robot.customData`.
+  field  SFBool      supervisor      FALSE           # Is `Robot.supervisor`.
+  field  SFBool      synchronization TRUE            # Is `Robot.synchronization`.
+  field  SFBool      selfCollision   FALSE           # Is `Robot.selfCollision`.
+]
+{
+  Robot {
+    translation IS translation
+    rotation IS rotation
+    controller IS controller
+    controllerArgs IS controllerArgs
+    customData IS customData
+    supervisor IS supervisor
+    synchronization IS synchronization
+    selfCollision IS selfCollision
+    children [
+      Pose {
+        translation 0.000000 0.000000 -0.150000
+        rotation 0.000000 0.000000 1.000000 1.570000
+        children [
+          DEF limo_base_visual CadShape {
+            url "../resource/limo_description/meshes/limo_base.dae"
+          }
+        ]
+      }
+      Solid {
+        name "inertial_link"
+        physics Physics {
+          density -1
+          mass 2.155700
+          centerOfMass [ 0.000000 0.000000 0.000000 ]
+          inertiaMatrix [
+            2.400000e-01 9.600000e-01 9.600000e-01
+            0.000000e+00 0.000000e+00 0.000000e+00
+          ]
+        }
+      }
+      Solid {
+        translation 0.103000 0.000000 -0.034000
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.500000 0.500000 0.500000
+              roughness 1.000000
+              metalness 0
+            }
+            geometry Cylinder {
+              radius 0.02
+              height 0.01
+            }
+          }
+          Lidar {
+            name "laser_sensor"
+            fieldOfView 4.188790
+            horizontalResolution 720
+            numberOfLayers 1
+            minRange 0.050000
+            maxRange 8.000000
+            noise 0.001250
+            resolution 0.010000
+          }
+        ]
+        name "laser_link"
+        boundingObject Cylinder {
+          radius 0.032
+          height 0.016
+        }
+        physics Physics {
+          density -1
+          mass 0.100000
+          centerOfMass [ 0.000000 0.000000 0.000000 ]
+          inertiaMatrix [
+            1.000000e-06 1.000000e-06 1.000000e-06
+            0.000000e+00 0.000000e+00 0.000000e+00
+          ]
+        }
+      }
+      Solid {
+        translation 0.084000 0.000000 0.030000
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.500000 0.500000 0.500000
+              roughness 1.000000
+              metalness 0
+            }
+            geometry Box {
+                size 0.020000 0.060000 0.015000
+            }
+          }
+          Pose {
+            translation 0 0 0
+            rotation 0.577350 -0.577350 0.577350 2.094395
+            children [
+              RangeFinder {
+                name "sensor_camera"
+                fieldOfView 1.396263
+                width 640
+                height 480
+                near 0.020000
+                minRange 0.020000
+              }
+            ]
+          }
+        ]
+        name "depth_camera_link"
+        boundingObject Box {
+            size 0.020000 0.060000 0.015000
+        }
+        physics Physics {
+          density -1
+          mass 0.100000
+          centerOfMass [ 0.000000 0.000000 0.000000 ]
+          inertiaMatrix [
+            1.000000e-06 1.000000e-06 1.000000e-06
+            0.000000e+00 0.000000e+00 0.000000e+00
+          ]
+        }
+      }
+      Solid {
+        translation 0.000000 0.000000 -0.100000
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.500000 0.500000 0.500000
+              roughness 1.000000
+              metalness 0
+            }
+            geometry Box {
+                size 0.001000 0.001000 0.001000
+            }
+          }
+          InertialUnit {
+            name "/limo/imu inertial"
+            noise 0.000637
+          }
+          Accelerometer {
+            name "/limo/imu accelerometer"
+            lookupTable [-100 -100 -0.000010, 100 100 0.000010]
+          }
+          Gyro {
+            name "/limo/imu gyro"
+            lookupTable [-100 -100 -0.000010, 100 100 0.000010]
+          }
+          Compass {
+            name "/limo/imu compass"
+            lookupTable [-1 -1 -0.001000, 1 1 0.001000]
+          }
+        ]
+        name "imu_link"
+        boundingObject Box {
+            size 0.001000 0.001000 0.001000
+        }
+        physics Physics {
+          density -1
+          mass 0.010000
+          centerOfMass [ 0.000000 0.000000 0.000000 ]
+          inertiaMatrix [
+            1.000000e-07 1.000000e-07 1.000000e-07
+            0.000000e+00 0.000000e+00 0.000000e+00
+          ]
+        }
+      }
+      HingeJoint {
+        jointParameters HingeJointParameters {
+          axis 0.000000 0.000000 1.000000  #0.000000 0.000000 0.000000
+          anchor 0.100000 0.070000 -0.100998
+          dampingConstant 1.0
+          staticFriction 2.0
+        }
+        device [
+          RotationalMotor {
+            name "left_steering_hinge_wheel"
+            maxVelocity 0.5
+            minPosition -0.523598767
+            maxPosition 0.523598767
+            maxTorque 5.0
+          }
+          PositionSensor {
+            name "left_steering_hinge_wheel_sensor"
+          }
+        ]
+        endPoint Solid {
+          translation 0.100000 0.070000 -0.100998
+          children [
+            Shape {
+              appearance PBRAppearance {
+                baseColor 0.500000 0.500000 0.500000
+                roughness 1.000000
+                metalness 0
+              }
+              geometry Cylinder {
+                radius 0.0001
+                height 0.0001
+              }
+            }
+            HingeJoint {
+              jointParameters HingeJointParameters {
+                axis 0.000000 1.000000 0.000000
+              }
+              device [
+                RotationalMotor {
+                  name "front_left_wheel"
+                  maxTorque 10000
+                }
+                PositionSensor {
+                  name "front_left_wheel_sensor"
+                }
+              ]
+              endPoint Solid {
+                translation 0.000000 0.000000 0.000000  ##right front : 0.100000 -0.070000 -0.100998
+                children [
+                  DEF limo_wheel_visual CadShape {   ########### 여기
+                    url "../resource/limo_description/meshes/limo_wheel.dae"
+                  }
+                ]
+                name "front_left_wheel_link"
+                boundingObject Pose {
+                  translation 0.000000 0.022500 0.000000 #여기 부분 수정 완료
+                  rotation 1.000000 0.000000 0.000000 1.570000
+                  children [
+                    Cylinder {
+                      radius 0.045
+                      height 0.045
+                    }
+                  ]
+                }
+                physics Physics {
+                  density -1
+                  mass 0.250000
+                  centerOfMass [ 0.000000 0.000000 0.000000 ]
+                  inertiaMatrix [
+                    5.250000e-03 3.500000e-04 5.250000e-03
+                    0.000000e+00 0.000000e+00 0.000000e+00
+                  ]
+                }
+              }
+            }
+          ]
+          name "left_steering_hinge"
+          boundingObject Pose {
+            translation 0.000000 0.022500 0.000000
+            rotation 1.000000 0.000000 0.000000 1.570000
+            children [
+              Cylinder {
+                radius 0.034999999999999996
+                height 0.045
+              }
+            ]
+          }
+          physics Physics {
+            density -1
+            mass 0.250000
+            centerOfMass [ 0.000000 0.000000 0.000000 ]
+            inertiaMatrix [
+              5.250000e-03 3.500000e-04 5.250000e-03
+              0.000000e+00 0.000000e+00 0.000000e+00
+            ]
+          }
+        }
+      }
+      HingeJoint {
+        jointParameters HingeJointParameters {
+          axis 0.000000 0.000003 1.000000  #0.000000 0.000003 1.000000
+          anchor 0.100000 -0.070000 -0.100998 
+          dampingConstant 1.0
+          staticFriction 2.0
+        }
+        device [
+          RotationalMotor {
+            name "right_steering_hinge_wheel"
+            maxVelocity 0.5
+            minPosition -0.523598767
+            maxPosition 0.523598767
+            maxTorque 5.0
+          }
+          PositionSensor {
+            name "right_steering_hinge_wheel_sensor"
+          }
+        ]
+        endPoint Solid {
+          translation 0.100000 -0.070000 -0.100998
+          rotation 1.000000 0.000000 0.000000 3.141590
+          children [
+            Shape {
+              appearance PBRAppearance {
+                baseColor 0.500000 0.500000 0.500000
+                roughness 1.000000
+                metalness 0
+              }
+              geometry Cylinder {
+                radius 0.0001
+                height 0.0001
+              }
+            }
+            HingeJoint {
+              jointParameters HingeJointParameters {
+                axis 0.000000 -1.000000 0.000000  # 0.000000 -1.000000 0.000000
+              }
+              device [
+                RotationalMotor {
+                  name "front_right_wheel"
+                  maxTorque 10000
+                }
+                PositionSensor {
+                  name "front_right_wheel_sensor"
+                }
+              ]
+              endPoint Solid {
+                translation 0.000000 0.000000 0.000000 ##### 새롭게 추가, 왜 오른쪽 바퀴 endPoint Solid는 다 0 0 0?
+                children [
+                  USE limo_wheel_visual ######## 여기
+                ]
+                name "front_right_wheel_link"
+                boundingObject Pose {
+                  translation 0.000000 0.022500 0.000000
+                  rotation 1.000000 0.000000 0.000000 1.570000
+                  children [
+                    Cylinder {
+                      radius 0.045
+                      height 0.045
+                    }
+                  ]
+                }
+                physics Physics {
+                  density -1
+                  mass 0.250000
+                  centerOfMass [ 0.000000 0.000000 0.000000 ]
+                  inertiaMatrix [
+                    5.250000e-03 3.500000e-04 5.250000e-03
+                    0.000000e+00 0.000000e+00 0.000000e+00
+                  ]
+                }
+              }
+            }
+          ]
+          name "right_steering_hinge"
+          boundingObject Pose {
+            translation 0.000000 0.022500 0.000000
+            rotation 1.000000 0.000000 0.000000 1.570000
+            children [
+              Cylinder {
+                radius 0.034999999999999996
+                height 0.045
+              }
+            ]
+          }
+          physics Physics {
+            density -1
+            mass 0.250000
+            centerOfMass [ 0.000000 0.000000 0.000000 ]
+            inertiaMatrix [
+              5.250000e-03 3.500000e-04 5.250000e-03
+              0.000000e+00 0.000000e+00 0.000000e+00
+            ]
+          }
+        }
+      }
+      HingeJoint {
+        jointParameters HingeJointParameters {
+          axis 0.000000 1.000000 0.000000 
+          anchor -0.100000 0.070000 -0.100998
+        }
+        device [
+          RotationalMotor {
+            name "rear_left_wheel"
+            maxTorque 10000
+          }
+          PositionSensor {
+            name "rear_left_wheel_sensor"
+          }
+        ]
+        endPoint Solid {
+          translation -0.100000 0.070000 -0.100998
+          children [
+            USE limo_wheel_visual
+          ]
+          name "rear_left_wheel_link"
+          boundingObject Pose {
+            translation 0.000000 0.022500 0.000000
+            rotation 1.000000 0.000000 0.000000 1.570000
+            children [
+              Cylinder {
+                radius 0.045
+                height 0.045
+              }
+            ]
+          }
+          physics Physics {
+            density -1
+            mass 0.500000
+            centerOfMass [ 0.000000 0.000000 0.000000 ]
+            inertiaMatrix [
+              1.055000e-02 7.500000e-04 1.055000e-02
+              0.000000e+00 0.000000e+00 0.000000e+00
+            ]
+          }
+        }
+      }
+      HingeJoint {
+        jointParameters HingeJointParameters {
+          axis 0.000000 1.000000 -0.000003  #0.000000 1.000000 -0.000003
+          anchor -0.100000 -0.070000 -0.100998
+        }
+        device [
+          RotationalMotor {
+            name "rear_right_wheel"
+            maxTorque 10000
+          }
+          PositionSensor {
+            name "rear_right_wheel_sensor"
+          }
+        ]
+        endPoint Solid {
+          translation -0.100000 -0.070000 -0.100998
+          rotation 1.000000 0.000000 0.000000 3.141590
+          children [
+            USE limo_wheel_visual
+          ]
+          name "rear_right_wheel_link"
+          boundingObject Pose {
+            translation 0.000000 0.022500 0.000000   # 0.000000 0.022500 0.000000
+            rotation 1.000000 0.000000 0.000000 1.570000
+            children [
+              Cylinder {
+                radius 0.045
+                height 0.045
+              }
+            ]
+          }
+          physics Physics {
+            density -1
+            mass 0.500000
+            centerOfMass [ 0.000000 0.000000 0.000000 ]
+            inertiaMatrix [
+              1.055000e-02 7.500000e-04 1.055000e-02
+              0.000000e+00 0.000000e+00 0.000000e+00
+            ]
+          }
+        }
+      }
+    ]
+    name IS name
+    boundingObject Box {
+        size 0.260000 0.240000 0.200000
+    }
+    physics Physics {
+    }
+  }
+}
