@@ -8,7 +8,7 @@ PROTO LimoAckerman [
   field  SFVec3f     translation     0 0 0
   field  SFRotation  rotation        0 0 1 0
   field  SFString    name            "LimoAckerman"  # Is `Robot.name`.
-  field  SFString    controller      "void"          # Is `Robot.controller`.
+  field  SFString    controller      "<extern>"          # Is `Robot.controller`.
   field  MFString    controllerArgs  []              # Is `Robot.controllerArgs`.
   field  SFString    customData      ""              # Is `Robot.customData`.
   field  SFBool      supervisor      FALSE           # Is `Robot.supervisor`.
@@ -31,7 +31,7 @@ PROTO LimoAckerman [
         rotation 0.000000 0.000000 1.000000 1.570000
         children [
           DEF limo_base_visual CadShape {
-            url "../resource/limo_description/meshes/limo_base_low_opt.dae"
+            url "../resource/limo_description/meshes/limo_base.dae"
           }
         ]
       }
