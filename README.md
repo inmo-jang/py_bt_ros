@@ -34,10 +34,10 @@ The framework is designed to be **scenario-agnostic** — easily define new scen
 
 **Multi-robot autonomous fire suppression using Webots physics simulator**
 
-- **Environment**: Fire suppression arena with n Husky UGVs
+- **Environment**: Fire suppression arena with Husky UGVs or Limo robots
 - **Objective**: Robots collaboratively detect, approach, and suppress spreading fires
 - **Algorithms**: Various decentralised multi-robot task allocation algorithms such as GRAPE, CBBA, and Hungarian
-- **Features**: Network-aware task allocation, communication topology visualization, fire spread simulation
+- **Features**: Network-aware task allocation, communication topology visualization, fire spread simulation, Husky/Limo platform variants
 - **Validation Workflow**: Ported from [space-simulator](https://github.com/inmo-jang/space-simulator) — test algorithms there first, then validate with Webots physics simulation
 
 📍 For detailed setup and usage → [See `scenarios/simple/README.md`](scenarios/simple/README.md)

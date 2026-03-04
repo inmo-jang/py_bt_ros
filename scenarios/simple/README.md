@@ -9,8 +9,10 @@ The goal is to demonstrate that the BT (Behaviour Tree)-based multi-robot archit
 ### Scenario Description
 
 - Environment: Webots `fire_suppression.wbt` world (indoor fire suppression map)
-- Robots: **Fire_UGV_N** (6 Husky-based UGVs)
+- Robots: **Fire_UGV_N** (Husky-based UGVs)
 - Objective: Each robot autonomously detects, approaches, and suppresses fires
+
+> This scenario also supports a **Limo variant**. See the **Limo ver** section below.
 
 Each robot is driven by an independent BT. It selects a fire to suppress based on a pluggable MRTA algorithm, approaches it, and repeatedly reduces its radius until the fire is extinguished. Fires spread to surrounding areas over time.
 
@@ -182,6 +184,85 @@ python3 main.py --config=scenarios/simple/configs/hungarian.yaml --ns /Fire_UGV_
 >
 > Press **Ctrl+C** to stop all BT runners at once.
 
+---
+
+## How to Run (Limo ver)
+
+This section describes how to run the same scenario with **Webots Limo robots**.
+
+### Needs modification
+
+The overall BT logic and MRTA plugins are the same. The main differences are:
+
+1) Webots launch package
+
+- Husky (default guide above): `webots_ros2_husky`
+- Limo: `webots_ros2_limo`
+
+2) Robot namespace prefix
+
+- Husky: `/Fire_UGV_N` (e.g. `/Fire_UGV_1`)
+- Limo: `/Limo_N` (e.g. `/Limo_1`)
+
+Where this matters:
+
+- **BT runner**: pass `--ns /Limo_N` to `main.py`
+- **Action server**: pass `--ns /Limo_N` to `scenarios/simple/action_servers/nav_action_server.py`
+- **Config default namespace (optional)**: update `agent.namespaces` in `scenarios/simple/configs/*.yaml`
+    - From: `/Fire_UGV_1` → To: `/Limo_1`
+    - (You can always override it with `--ns` per process)
+- **Shell scripts (optional)**:
+    - `scenarios/simple/scripts/run_action_servers.sh`: change `/Fire_UGV_$i` → `/Limo_$i`
+    - `scenarios/simple/scripts/run_bt_runners.sh`: change `/Fire_UGV_$i` → `/Limo_$i`
+
+3) RViz config / pose topic
+
+- Use `scenarios/simple/sim_webots/webots_ros2_limo/default_view.rviz`
+- Pose display topic becomes `/Limo_N/pose_world`
+
+4) Navigation tuning (optional)
+
+`scenarios/simple/action_servers/nav_action_server.py` contains Limo-friendly velocity hints (e.g. `max_linear_vel`, `max_angular_vel`). Adjust these if Limo feels too aggressive/slow.
+
+### Step 1: Launch Webots Simulation (Limo)
+
+```bash
+ros2 launch webots_ros2_limo robot_launch.py
+
+# With debug visualisation topics (e.g. comm_topology)
+ros2 launch webots_ros2_limo robot_launch.py debug:=true
+```
+
+### Step 2: Run Action Servers (one terminal per robot)
+
+```bash
+python3 scenarios/simple/action_servers/nav_action_server.py --ns /Limo_1
+python3 scenarios/simple/action_servers/nav_action_server.py --ns /Limo_2
+python3 scenarios/simple/action_servers/nav_action_server.py --ns /Limo_3
+```
+
+### Step 3: Run BT Runners (one terminal per robot)
+
+```bash
+# Greedy
+python3 main.py --config=scenarios/simple/configs/greedy.yaml --ns /Limo_1
+
+# GRAPE
+python3 main.py --config=scenarios/simple/configs/grape.yaml --ns /Limo_1
+
+# CBBA
+python3 main.py --config=scenarios/simple/configs/cbba.yaml --ns /Limo_1
+
+# Hungarian
+python3 main.py --config=scenarios/simple/configs/hungarian.yaml --ns /Limo_1
+```
+
+### (Optional) RViz Visualisation (Limo)
+
+```bash
+rviz2 -d scenarios/simple/sim_webots/webots_ros2_limo/default_view.rviz
+```
+
 ### Manual Test Commands
 
 ```bash
@@ -198,8 +279,7 @@ ros2 topic pub --once /world/fire/spawn_custom std_msgs/msg/Float64MultiArray "{
 ros2 service call /world/fire/spawn std_srvs/srv/Empty
 ```
 
-
-
+---
 ### (Optional) RViz Visualisation
 
 ```
@@ -234,18 +314,28 @@ simple/
 │   ├── grape.yaml              # GRAPE MRTA config
 │   └── cbba.yaml               # CBBA MRTA config
 └── sim_webots/
-    └── webots_ros2_husky/
+    ├── webots_ros2_husky/
+    │   ├── launch/
+    │   │   └── robot_launch.py               # Webots launch + robot driver setup
+    │   ├── controllers/
+    │   │   ├── robot_supervisor/
+    │   │   │   └── robot_supervisor.py       # Publishes robot poses from Webots
+    │   │   └── world_supervisor/
+    │   │       └── world_supervisor.py       # Fire management (spawn/suppress/reduce/spread)
+    │   ├── worlds/
+    │   │   └── fire_suppression.wbt          # Webots world file (Husky)
+    │   └── protos/
+    │       └── Fire.proto                    # Fire visualization PROTO
+    └── webots_ros2_limo/
         ├── launch/
-        │   └── robot_launch.py               # Webots launch + robot driver setup
+        │   └── robot_launch.py               # Webots launch + robot driver setup (Limo)
         ├── controllers/
         │   ├── robot_supervisor/
         │   │   └── robot_supervisor.py       # Publishes robot poses from Webots
         │   └── world_supervisor/
         │       └── world_supervisor.py       # Fire management (spawn/suppress/reduce/spread)
-        ├── worlds/
-        │   └── fire_suppression.wbt          # Webots world file
-        └── protos/
-            └── Fire.proto                    # Fire visualization PROTO
+        └── worlds/
+            └── fire_suppression.wbt          # Webots world file (Limo)
 ```
 
 ---
