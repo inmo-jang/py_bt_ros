@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.1] - 2026-04-05
+
+### Fixed
+- **CBBA (`cbba.py`)**: Fixed bundle management (use `append` instead of `insert`; remove all tasks after outbid task) and multi-hop consensus propagation (broadcast after ASSIGNMENT_CONSENSUS phase, move `update_time_stamp()` after conflict resolution, remove overly restrictive skip condition). Eliminates unassigned tasks when all agents are connected.
+
+---
+
 ## [1.0.0] - 2026-03-02
 
 ### Added
