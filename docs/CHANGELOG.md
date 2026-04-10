@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.2] - 2026-04-11
+
+### Changed
+- **CBBA (`cbba.py`)**: Removed phase state machine; consensus and bundle-building now run every tick. Added rebid check before bundle-building to abandon and rebuild when bid worsens due to position change.
+
+---
+
 ## [1.0.1] - 2026-04-05
 
 ### Fixed
