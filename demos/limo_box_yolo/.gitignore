@@ -1,0 +1,7 @@
+runs/
+config/
+data.local.yaml
+*.cache
+.venv/
+!dataset/images/*/*.jpg
+!reports/evidence/*.jpg
