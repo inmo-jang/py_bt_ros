@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+  <BehaviorTree ID="LimoRoundTrip">
+    <Sequence>
+      <MoveToGoal pose_key="goal_pose" />
+      <WaitForSecond seconds="10" />
+      <MoveToGoal pose_key="home_pose" />
+    </Sequence>
+  </BehaviorTree>
+
+  <TreeNodesModel>
+    <Action ID="MoveToGoal" editable="true">
+      <input_port name="pose_key" default="goal_pose" />
+    </Action>
+    <Action ID="WaitForSecond" editable="true">
+      <input_port name="seconds" default="10" />
+    </Action>
+  </TreeNodesModel>
+</root>

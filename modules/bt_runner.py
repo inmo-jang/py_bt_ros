@@ -1,4 +1,5 @@
 import os
+import importlib
 import pygame
 from modules.agent import Agent
 
@@ -33,7 +34,9 @@ class BTRunner:
         ros_namespace = self.config['agent'].get('namespaces', [])
 
         # Initialize agent
-        self.agent = Agent(ros_namespace)
+        agent_module = self.config['agent'].get('module')
+        agent_class = importlib.import_module(agent_module).Agent if agent_module else Agent
+        self.agent = agent_class(ros_namespace)
 
         # Provide global info and create BT
         scenario_path = self.config['scenario'].get('environment').replace('.', '/')
@@ -48,7 +51,9 @@ class BTRunner:
 
 
     def close(self):
-        if self.agent and hasattr(self.agent, 'tree'):
+        if self.agent and hasattr(self.agent, 'close'):
+            self.agent.close()
+        elif self.agent and hasattr(self.agent, 'tree'):
             self.agent.halt_tree()
 
     def render(self):
