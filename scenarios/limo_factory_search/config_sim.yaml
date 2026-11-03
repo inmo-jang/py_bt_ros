@@ -1,0 +1,46 @@
+scenario:
+  environment: scenarios.limo_factory_search
+agent:
+  module: scenarios.limo_factory_search.agent
+  namespaces: ""
+  behavior_tree_xml: default_bt.xml
+ros:
+  node_name: limo_factory_search_bt
+  use_sim_time: true
+bt_runner:
+  bt_tick_rate: 20.0
+  bt_visualiser:
+    enabled: true
+    screen_width: 1200
+    screen_height: 720
+    direction: Horizontal
+  profiling_mode: false
+mission:
+  navigation_action: /navigate_to_pose
+  global_frame: map
+  robot_frame: base_link
+  odom_frame: odom
+  tf_max_age: 2.0
+  server_timeout: 30.0
+  navigation_timeout: 240.0
+  perception_timeout: 5.0
+  detection_max_age: 1.0
+  start_topic: /bt/search/start
+  cancel_topic: /bt/search/cancel
+  person_topic: /perception/is_person
+  person_pose_topic: /perception/person_pose
+  person_log: ~/.ros/py_bt_ros/person_detections.jsonl
+  mock_person_pose: {x: 5.55, y: 0.65, z: 0.0}
+  mock_detection_distance: 1.0
+  region_topic: /bt/search/current_region
+  status_topic: /bt/search/status
+  # Simulator world coordinates; the survey map uses this same coordinate frame.
+  start_pose: {x: -4.28, y: 5.02, yaw: 0.0}
+  # Saved-map world coordinates. Factory launch ignores goal yaw (position-only arrival).
+  # slam:=true converts these coordinates relative to start_pose.
+  regions:
+    1: {label: "Left space", x: 1.0, y: 8.6, yaw: -1.570796327}
+    2: {label: "Deep space", x: 1.2, y: -8.6, yaw: 1.570796327}
+    3: {label: "Person room", x: 4.85, y: 0.65, yaw: -1.570796327}
+  # Explicit stand-in for a future YOLO node; it does not read the Webots person.
+  mock_person_regions: [3]

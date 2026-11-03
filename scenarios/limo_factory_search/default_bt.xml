@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+  <BehaviorTree ID="FactoryPersonSearch">
+    <ReactiveFallback>
+      <Sequence>
+        <IsPerson />
+        <RecordPerson />
+      </Sequence>
+      <Sequence>
+        <MoveToGoal region="1" />
+        <MoveToGoal region="2" />
+        <MoveToGoal region="3" />
+        <AlwaysFailure />
+      </Sequence>
+    </ReactiveFallback>
+  </BehaviorTree>
+  <TreeNodesModel>
+    <Action ID="MoveToGoal"><input_port name="region" /></Action>
+    <Action ID="RecordPerson" />
+    <Condition ID="IsPerson" />
+  </TreeNodesModel>
+</root>

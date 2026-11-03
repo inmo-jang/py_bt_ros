@@ -3,6 +3,8 @@ import threading
 import rclpy
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node as RclNode
+from rclpy.parameter import Parameter
+from rclpy.signals import SignalHandlerOptions
 
 
 class ROSBridge:
@@ -13,15 +15,19 @@ class ROSBridge:
 
     _instance = None
 
-    def __init__(self, node_name='space_bt_bridge', namespace=''):
+    def __init__(self, node_name='space_bt_bridge', namespace='', use_sim_time=False):
         if ROSBridge._instance is not None:
             raise RuntimeError("ROSBridge is a singleton. Use ROSBridge.get().")
 
         # rclpy 초기화
-        rclpy.init(args=None)
+        # main.py handles SIGTERM/KeyboardInterrupt and halts the BT first.
+        # Keep the ROS context alive until action cancellation has been sent.
+        rclpy.init(args=None, signal_handler_options=SignalHandlerOptions.NO)
 
         # node 생성
-        self.node = RclNode(node_name=node_name, namespace=namespace)
+        self.node = RclNode(
+            node_name=node_name, namespace=namespace,
+            parameter_overrides=[Parameter('use_sim_time', value=bool(use_sim_time))])
 
         # executor 생성
         self.executor = SingleThreadedExecutor()
@@ -40,18 +46,20 @@ class ROSBridge:
             print(f"[ROSBridge] Spin thread stopped: {e}")
 
     @classmethod
-    def get(cls, node_name='space_bt_bridge', namespace=''):
+    def get(cls, node_name='space_bt_bridge', namespace='', use_sim_time=False):
         """
         싱글톤 인스턴스를 반환. 최초 호출 시에만 생성된다.
         """
         if cls._instance is None:
-            cls._instance = ROSBridge(node_name=node_name, namespace=namespace)
+            cls._instance = ROSBridge(
+                node_name=node_name, namespace=namespace, use_sim_time=use_sim_time)
         return cls._instance
 
     def shutdown(self):
         """Stop executor thread and shutdown rclpy cleanly."""
         try:
-            self.executor.shutdown()
+            self.executor.shutdown(timeout_sec=1.0)
+            self._spin_thread.join(timeout=1.0)
         except Exception:
             pass
         try:

@@ -17,6 +17,22 @@ The framework is designed to be **scenario-agnostic** — easily define new scen
 
 ## Scenarios
 
+### LIMO Factory Search
+
+공장 1→2→3 구역을 이동하면서 매 틱 `IsPerson`을 확인한다. 발견하면 이동을
+취소하고 사람의 지도 좌표를 기록한 뒤 SUCCESS로 종료한다. 현재는 모의 감지를 사용한다.
+실행 명령: [scenarios/limo_factory_search/README.md](scenarios/limo_factory_search/README.md).
+
+### LIMO Round Trip (Webots + Nav2)
+
+`dev_chanseo`에 LIMO용 시나리오를 추가했다. XML BT와 Pygame 시각화를 사용하여
+**목적지 이동 → 시뮬레이션 시간 10초 대기 → 출발점 복귀**를 수행한다.
+시뮬레이터는 별도 `webots_ros2_limo` 레포에서 실행한다.
+
+실행 명령과 구성 파일 → [scenarios/limo_round_trip/README.md](scenarios/limo_round_trip/README.md)
+
+---
+
 ### 1. 🐢 [Turtle Catcher (Turtlesim)](scenarios/turtle_catcher/README.md)
 
 **Lightweight BT + ROS 2 example using turtlesim**
