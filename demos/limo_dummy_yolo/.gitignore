@@ -1,8 +1,7 @@
 __pycache__/
 *.pyc
-*.cache
-data.local.yaml
-runs/
-live/
-config/
+.pytest_cache/
+build/
+install/
+log/
 .venv/
