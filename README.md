@@ -13,6 +13,10 @@
 
 The framework is designed to be **scenario-agnostic** — easily define new scenarios by creating BT nodes and MRTA configurations.
 
+## ROS perception packages
+
+- [human_yolo](ros_packages/human_yolo/README.md): RGB-D human-dummy detection, trained weights and ROS detection/position topics for existing BTs. This package does not launch a simulator or control robot motion. Its Python dependencies are separate from the framework's root `requirements.txt`.
+
 ---
 
 ## Scenarios

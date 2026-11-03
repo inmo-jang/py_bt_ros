@@ -1,2 +1,0 @@
-ultralytics==8.4.198
-# Use the PyTorch build appropriate for your hardware; trained with torch 2.15.0.
