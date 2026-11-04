@@ -1,0 +1,15 @@
+/**:
+  ros__parameters:
+    use_sim_time: false
+    target_class: rescue_dummy
+    confidence: 0.5
+    image_size: 320
+    device: cpu
+    cpu_threads: 2
+    rgb_topic: /camera/color/image_raw
+    depth_topic: /camera/depth/image_raw
+    camera_info_topic: /camera/color/camera_info
+    sync_tolerance: 0.10
+    input_timeout: 1.0
+    min_depth: 0.15
+    max_depth: 3.0

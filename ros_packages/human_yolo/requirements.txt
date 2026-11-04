@@ -1,0 +1,4 @@
+ultralytics==8.4.198
+numpy>=1.26,<3
+# PyTorch is installed as an Ultralytics dependency. Choose the appropriate
+# CPU/CUDA build for your machine; model training used torch 2.15.0.
