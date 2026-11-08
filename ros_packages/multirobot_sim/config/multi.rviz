@@ -1,0 +1,257 @@
+Panels:
+- Class: rviz_common/Displays
+  Help Height: 0
+  Name: Displays
+  Property Tree Widget:
+    Expanded:
+    - /Global Options1
+    - /TF1/Frames1
+    - /TF1/Tree1
+    Splitter Ratio: 0.5833333134651184
+  Tree Height: 287
+- Class: rviz_common/Selection
+  Name: Selection
+- Class: rviz_common/Tool Properties
+  Expanded:
+  - /Publish Point1
+  Name: Tool Properties
+  Splitter Ratio: 0.5886790156364441
+- Class: rviz_common/Views
+  Expanded:
+  - /Current View1
+  Name: Views
+  Splitter Ratio: 0.3333333432674408
+Visualization Manager:
+  Class: ''
+  Displays:
+  - Alpha: 0.5
+    Cell Size: 1
+    Class: rviz_default_plugins/Grid
+    Color: 160; 160; 164
+    Enabled: true
+    Line Style:
+      Line Width: 0.029999999329447746
+      Value: Lines
+    Name: Grid
+    Normal Cell Count: 0
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0
+    Plane: XY
+    Plane Cell Count: 26
+    Reference Frame: <Fixed Frame>
+    Value: true
+  - Alpha: 1
+    Binary representation: false
+    Binary threshold: 100
+    Class: rviz_default_plugins/Map
+    Color Scheme: map
+    Draw Behind: true
+    Enabled: true
+    Name: Map
+    Topic:
+      Depth: 1
+      Durability Policy: Transient Local
+      Filter size: 10
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Value: /map
+    Update Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Value: /map_updates
+    Use Timestamp: false
+    Value: true
+  - Alpha: 1
+    Autocompute Intensity Bounds: true
+    Autocompute Value Bounds:
+      Max Value: 10
+      Min Value: -10
+      Value: true
+    Axis: Z
+    Channel Name: intensity
+    Class: rviz_default_plugins/LaserScan
+    Color: 255; 40; 40
+    Color Transformer: FlatColor
+    Decay Time: 1.0
+    Enabled: true
+    Invert Rainbow: false
+    Max Color: 255; 255; 255
+    Max Intensity: 0
+    Min Color: 0; 0; 0
+    Min Intensity: 0
+    Name: robot1 scan
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 7
+    Size (m): 0.06
+    Style: Flat Squares
+    Topic:
+      Depth: 50
+      Durability Policy: Volatile
+      Filter size: 100
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /robot1/scan
+    Use Fixed Frame: true
+    Use rainbow: true
+    Value: true
+  - Class: rviz_default_plugins/Path
+    Name: robot1 path
+    Enabled: true
+    Value: true
+    Line Style: Lines
+    Line Width: 0.04
+    Color: 255; 40; 40
+    Topic:
+      Value: /robot1/plan
+      Depth: 5
+      Durability Policy: Volatile
+      Reliability Policy: Reliable
+      History Policy: Keep Last
+  - Alpha: 1
+    Autocompute Intensity Bounds: true
+    Autocompute Value Bounds:
+      Max Value: 10
+      Min Value: -10
+      Value: true
+    Axis: Z
+    Channel Name: intensity
+    Class: rviz_default_plugins/LaserScan
+    Color: 40; 210; 60
+    Color Transformer: FlatColor
+    Decay Time: 1.0
+    Enabled: true
+    Invert Rainbow: false
+    Max Color: 255; 255; 255
+    Max Intensity: 0
+    Min Color: 0; 0; 0
+    Min Intensity: 0
+    Name: robot2 scan
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 7
+    Size (m): 0.06
+    Style: Flat Squares
+    Topic:
+      Depth: 50
+      Durability Policy: Volatile
+      Filter size: 100
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /robot2/scan
+    Use Fixed Frame: true
+    Use rainbow: true
+    Value: true
+  - Class: rviz_default_plugins/Path
+    Name: robot2 path
+    Enabled: true
+    Value: true
+    Line Style: Lines
+    Line Width: 0.04
+    Color: 40; 210; 60
+    Topic:
+      Value: /robot2/plan
+      Depth: 5
+      Durability Policy: Volatile
+      Reliability Policy: Reliable
+      History Policy: Keep Last
+  - Alpha: 1
+    Autocompute Intensity Bounds: true
+    Autocompute Value Bounds:
+      Max Value: 10
+      Min Value: -10
+      Value: true
+    Axis: Z
+    Channel Name: intensity
+    Class: rviz_default_plugins/LaserScan
+    Color: 40; 100; 255
+    Color Transformer: FlatColor
+    Decay Time: 1.0
+    Enabled: true
+    Invert Rainbow: false
+    Max Color: 255; 255; 255
+    Max Intensity: 0
+    Min Color: 0; 0; 0
+    Min Intensity: 0
+    Name: robot3 scan
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 7
+    Size (m): 0.06
+    Style: Flat Squares
+    Topic:
+      Depth: 50
+      Durability Policy: Volatile
+      Filter size: 100
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /robot3/scan
+    Use Fixed Frame: true
+    Use rainbow: true
+    Value: true
+  - Class: rviz_default_plugins/Path
+    Name: robot3 path
+    Enabled: true
+    Value: true
+    Line Style: Lines
+    Line Width: 0.04
+    Color: 40; 100; 255
+    Topic:
+      Value: /robot3/plan
+      Depth: 5
+      Durability Policy: Volatile
+      Reliability Policy: Reliable
+      History Policy: Keep Last
+  - Class: rviz_default_plugins/TF
+    Name: Robot frames
+    Enabled: true
+    Value: true
+    Show Names: true
+    Show Axes: true
+    Show Arrows: false
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+    Frame Rate: 15
+  Name: root
+  Tools:
+  - Class: rviz_default_plugins/MoveCamera
+  - Class: rviz_default_plugins/Select
+  - Class: rviz_default_plugins/FocusCamera
+  - Class: rviz_default_plugins/Measure
+    Line color: 128; 128; 0
+  - Class: rviz_default_plugins/PublishPoint
+    Single click: true
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Value: /clicked_point
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+  Views:
+    Current:
+      Angle: -0.0008007669821381569
+      Class: rviz_default_plugins/TopDownOrtho
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Invert Z Axis: false
+      Name: Current View
+      Near Clip Distance: 0.009999999776482582
+      Scale: 25.0
+      Target Frame: <Fixed Frame>
+      Value: TopDownOrtho (rviz_default_plugins)
+      X: 0.0
+      Y: 0.0
+    Saved: null

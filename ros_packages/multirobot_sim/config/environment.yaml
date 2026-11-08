@@ -1,0 +1,15 @@
+world: limo_factory_multi.wbt
+map: limo_factory_map.yaml
+starts:
+  robot1:
+    x: -8.0
+    y: 7.0
+    yaw: 0.0
+  robot2:
+    x: -8.0
+    y: 6.0
+    yaw: 0.0
+  robot3:
+    x: -8.0
+    y: 5.0
+    yaw: 0.0

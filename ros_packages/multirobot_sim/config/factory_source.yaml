@@ -1,0 +1,11 @@
+repository: https://github.com/qkrckstj/py_bt_ros
+branch: dev_chanseo
+commit: 652dab8d73d2a546ca4474ae660bcfabae383edd
+world: simulation/webots_ros2_limo/worlds/limo_factory_hall.wbt
+source_world_sha256: 0f2f3a0f82817ebf58e3c5fa9bfb8e660dc19a4e793e6b8b9e3287cc9b832534
+changes:
+- replace one LIMO with three uniquely named LIMO instances
+- use default green-shirt dummy colors for existing trained model
+- add wheel-ground contact properties for the calibrated motor adapter
+validation: Provenance only. New external-assignment integration requires separate
+  runtime verification.

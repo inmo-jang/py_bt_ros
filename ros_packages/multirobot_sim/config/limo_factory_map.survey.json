@@ -1,0 +1,20 @@
+{
+  "method": "Webots lidar survey with simulator ground-truth poses; not SLAM",
+  "world_sha256": "3c92b723def96d992fdb2d2c8ad407590d11dccebbaf90102be032b7df82ccf1",
+  "source_world": "worlds/limo_factory_hall.wbt",
+  "excluded_defs": [
+    "LIMO",
+    "RESCUE_DUMMY",
+    "OBSTACLE_BOX_1",
+    "OBSTACLE_BOX_2"
+  ],
+  "lidar_height": 0.111,
+  "sample_spacing": 0.8,
+  "accepted_poses": 553,
+  "resolution": 0.05,
+  "origin": [
+    -9.0,
+    -13.0,
+    0
+  ]
+}
